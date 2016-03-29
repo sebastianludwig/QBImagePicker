@@ -144,10 +144,6 @@
 
 
 
-static CGSize CGSizeScale(CGSize size, CGFloat scale) {
-    return CGSizeMake(size.width * scale, size.height * scale);
-}
-
 @interface QBImagePickerController (Private)
 
 @property (nonatomic, strong) NSBundle *assetBundle;
@@ -172,6 +168,9 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     
     self.collectionsController = [[QBAssetCollectionsController alloc] initWithAssetCollectionSubtypes:self.imagePickerController.assetCollectionSubtypes];
     self.collectionsController.delegate = self;
+    
+    UINib *nib = [UINib nibWithNibName:@"QBAlbumCell" bundle:self.imagePickerController.assetBundle];
+    [self.tableView registerNib:nib forCellReuseIdentifier:@"QBAlbumCell"];
 }
 
 - (void)viewWillAppear:(BOOL)animated
@@ -192,15 +191,6 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     }
     
     [self updateSelectionInfo];
-}
-
-#pragma mark - Storyboard
-
-- (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(id)sender
-{
-    QBAssetsViewController *assetsViewController = segue.destinationViewController;
-    assetsViewController.imagePickerController = self.imagePickerController;
-    assetsViewController.assetCollection = self.collectionsController.assetCollections[self.tableView.indexPathForSelectedRow.row];
 }
 
 
@@ -260,54 +250,6 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     }
 }
 
-
-#pragma mark - Fetching Asset Collections
-
-- (UIImage *)placeholderImageWithSize:(CGSize)size
-{
-    UIGraphicsBeginImageContext(size);
-    CGContextRef context = UIGraphicsGetCurrentContext();
-    
-    UIColor *backgroundColor = [UIColor colorWithRed:(239.0 / 255.0) green:(239.0 / 255.0) blue:(244.0 / 255.0) alpha:1.0];
-    UIColor *iconColor = [UIColor colorWithRed:(179.0 / 255.0) green:(179.0 / 255.0) blue:(182.0 / 255.0) alpha:1.0];
-    
-    // Background
-    CGContextSetFillColorWithColor(context, [backgroundColor CGColor]);
-    CGContextFillRect(context, CGRectMake(0, 0, size.width, size.height));
-    
-    // Icon (back)
-    CGRect backIconRect = CGRectMake(size.width * (16.0 / 68.0),
-                                     size.height * (20.0 / 68.0),
-                                     size.width * (32.0 / 68.0),
-                                     size.height * (24.0 / 68.0));
-    
-    CGContextSetFillColorWithColor(context, [iconColor CGColor]);
-    CGContextFillRect(context, backIconRect);
-    
-    CGContextSetFillColorWithColor(context, [backgroundColor CGColor]);
-    CGContextFillRect(context, CGRectInset(backIconRect, 1.0, 1.0));
-    
-    // Icon (front)
-    CGRect frontIconRect = CGRectMake(size.width * (20.0 / 68.0),
-                                      size.height * (24.0 / 68.0),
-                                      size.width * (32.0 / 68.0),
-                                      size.height * (24.0 / 68.0));
-    
-    CGContextSetFillColorWithColor(context, [backgroundColor CGColor]);
-    CGContextFillRect(context, CGRectInset(frontIconRect, -1.0, -1.0));
-    
-    CGContextSetFillColorWithColor(context, [iconColor CGColor]);
-    CGContextFillRect(context, frontIconRect);
-    
-    CGContextSetFillColorWithColor(context, [backgroundColor CGColor]);
-    CGContextFillRect(context, CGRectInset(frontIconRect, 1.0, 1.0));
-    
-    UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
-    UIGraphicsEndImageContext();
-    
-    return image;
-}
-
 #pragma mark - UITableViewDataSource
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
@@ -317,96 +259,20 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
-    QBAlbumCell *cell = [tableView dequeueReusableCellWithIdentifier:@"AlbumCell" forIndexPath:indexPath];
-    cell.tag = indexPath.row;
-    cell.borderWidth = 1.0 / [[UIScreen mainScreen] scale];
+    QBAlbumCell *cell = [tableView dequeueReusableCellWithIdentifier:@"QBAlbumCell" forIndexPath:indexPath];
     
-    // Thumbnail
     PHAssetCollection *assetCollection = self.collectionsController.assetCollections[indexPath.row];
-    
-    PHFetchOptions *options = [PHFetchOptions new];
-    
-    switch (self.imagePickerController.mediaType) {
-        case QBImagePickerMediaTypeImage:
-            options.predicate = [NSPredicate predicateWithFormat:@"mediaType == %ld", PHAssetMediaTypeImage];
-            break;
-            
-        case QBImagePickerMediaTypeVideo:
-            options.predicate = [NSPredicate predicateWithFormat:@"mediaType == %ld", PHAssetMediaTypeVideo];
-            break;
-            
-        default:
-            break;
-    }
-    
-    // SEB: don't fetch here, it's going to be slow with many iCloud albums
-    // use PHAssetCollection.estimatedAssetCount and PHAsset+fetchKeyAssetsInAssetCollection
-    // later: pre-fetch all assets in the background to supply them to the assets collection view
-    
-    PHFetchResult *fetchResult = [PHAsset fetchAssetsInAssetCollection:assetCollection options:options];
-    PHImageManager *imageManager = [PHImageManager defaultManager];
-    if (fetchResult.count >= 3) {
-        cell.imageView3.hidden = NO;
-        
-        [imageManager requestImageForAsset:fetchResult[fetchResult.count - 3]
-                                targetSize:CGSizeScale(cell.imageView3.frame.size, [[UIScreen mainScreen] scale])
-                               contentMode:PHImageContentModeAspectFill
-                                   options:nil
-                             resultHandler:^(UIImage *result, NSDictionary *info) {
-                                 if (cell.tag == indexPath.row) {
-                                     cell.imageView3.image = result;
-                                 }
-                             }];
-    } else {
-        cell.imageView3.hidden = YES;
-    }
-    
-    if (fetchResult.count >= 2) {
-        cell.imageView2.hidden = NO;
-        
-        [imageManager requestImageForAsset:fetchResult[fetchResult.count - 2]
-                                targetSize:CGSizeScale(cell.imageView2.frame.size, [[UIScreen mainScreen] scale])
-                               contentMode:PHImageContentModeAspectFill
-                                   options:nil
-                             resultHandler:^(UIImage *result, NSDictionary *info) {
-                                 if (cell.tag == indexPath.row) {
-                                     cell.imageView2.image = result;
-                                 }
-                             }];
-    } else {
-        cell.imageView2.hidden = YES;
-    }
-    
-    if (fetchResult.count >= 1) {
-        [imageManager requestImageForAsset:fetchResult[fetchResult.count - 1]
-                                targetSize:CGSizeScale(cell.imageView1.frame.size, [[UIScreen mainScreen] scale])
-                               contentMode:PHImageContentModeAspectFill
-                                   options:nil
-                             resultHandler:^(UIImage *result, NSDictionary *info) {
-                                 if (cell.tag == indexPath.row) {
-                                     cell.imageView1.image = result;
-                                 }
-                             }];
-    }
-    
-    if (fetchResult.count == 0) {
-        cell.imageView3.hidden = NO;
-        cell.imageView2.hidden = NO;
-        
-        // Set placeholder image
-        UIImage *placeholderImage = [self placeholderImageWithSize:cell.imageView1.frame.size];
-        cell.imageView1.image = placeholderImage;
-        cell.imageView2.image = placeholderImage;
-        cell.imageView3.image = placeholderImage;
-    }
-    
-    // Album title
-    cell.titleLabel.text = assetCollection.localizedTitle;
-    
-    // Number of photos
-    cell.countLabel.text = [NSString stringWithFormat:@"%lu", (long)fetchResult.count];
+    [cell prepareForAssetCollection:assetCollection mediaType:self.imagePickerController.mediaType atIndexPath:indexPath];
     
     return cell;
+}
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    QBAssetsViewController *assetsViewController = [self.storyboard instantiateViewControllerWithIdentifier:@"QBAssetsViewController"];
+    assetsViewController.imagePickerController = self.imagePickerController;
+    assetsViewController.assetCollection = self.collectionsController.assetCollections[self.tableView.indexPathForSelectedRow.row];
+    [self.navigationController pushViewController:assetsViewController animated:YES];
 }
 
 #pragma mark - QBAssetCollectionsControllerDelegate

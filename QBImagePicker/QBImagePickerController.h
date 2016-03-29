@@ -8,6 +8,7 @@
 
 #import <UIKit/UIKit.h>
 #import <Photos/Photos.h>
+#import "QBImagePickerTypes.h"
 
 @class QBImagePickerController;
 
@@ -23,11 +24,6 @@
 
 @end
 
-typedef NS_ENUM(NSUInteger, QBImagePickerMediaType) {
-    QBImagePickerMediaTypeAny = 0,
-    QBImagePickerMediaTypeImage,
-    QBImagePickerMediaTypeVideo
-};
 
 @interface QBImagePickerController : UIViewController
 
