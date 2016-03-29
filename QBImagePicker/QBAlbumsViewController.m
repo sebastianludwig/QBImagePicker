@@ -16,6 +16,134 @@
 #import "QBImagePickerController.h"
 #import "QBAssetsViewController.h"
 
+
+@protocol QBAssetCollectionsControllerDelegate <NSObject>
+
+- (void)qb_assetCollectionsDidChange;
+
+@end
+
+@interface QBAssetCollectionsController : NSObject
+
+@property (nonatomic, weak) id<QBAssetCollectionsControllerDelegate> delegate;
+
+@property (nonatomic, copy) NSArray *enabledAssetCollectionSubtypes;    // TODO: setter should trigger updateAssetCollections
+@property (nonatomic, copy) NSArray *assetCollections;
+
+@end
+
+@interface QBAssetCollectionsController () <PHPhotoLibraryChangeObserver>
+
+@property (nonatomic, copy) NSArray *fetchResults;
+
+@end
+
+@implementation QBAssetCollectionsController
+
+- (instancetype)initWithAssetCollectionSubtypes:(NSArray *)assetCollectionSubtypes
+{
+    if (self = [super init]) {
+        self.enabledAssetCollectionSubtypes = assetCollectionSubtypes;
+        
+        // TODO: ensure this does not block
+        // Fetch user albums and smart albums
+        PHFetchResult *smartAlbums = [PHAssetCollection fetchAssetCollectionsWithType:PHAssetCollectionTypeSmartAlbum subtype:PHAssetCollectionSubtypeAny options:nil];
+        PHFetchResult *userAlbums = [PHAssetCollection fetchAssetCollectionsWithType:PHAssetCollectionTypeAlbum subtype:PHAssetCollectionSubtypeAny options:nil];
+        self.fetchResults = @[smartAlbums, userAlbums];
+        
+        // SEB: maybe use
+        // PHFetchResult *topLevelUserCollections = [PHCollectionList fetchTopLevelUserCollectionsWithOptions:nil];
+        // PHFetchResult *smartAlbums = [PHAssetCollection fetchAssetCollectionsWithType:PHAssetCollectionTypeSmartAlbum subtype:PHAssetCollectionSubtypeAlbumRegular options:nil];
+        // see GMPhotoPicker
+        
+        [self updateAssetCollections];
+        
+        // Register observer
+        [[PHPhotoLibrary sharedPhotoLibrary] registerChangeObserver:self];
+    }
+    return self;
+}
+
+
+- (void)dealloc
+{
+    [[PHPhotoLibrary sharedPhotoLibrary] unregisterChangeObserver:self];
+}
+
+#pragma mark private
+
+- (void)updateAssetCollections
+{
+    // TODO: previously this used self.imagePickerController.assetCollectionSubtypes - now changes to the imagePickerController subtypes won't be honored anymore
+    
+    // Filter albums
+    NSMutableDictionary *smartAlbums = [NSMutableDictionary dictionaryWithCapacity:self.enabledAssetCollectionSubtypes.count];
+    NSMutableArray *userAlbums = [NSMutableArray array];
+    
+    for (PHFetchResult *fetchResult in self.fetchResults) {
+        [fetchResult enumerateObjectsUsingBlock:^(PHAssetCollection *assetCollection, NSUInteger index, BOOL *stop) {
+            PHAssetCollectionSubtype subtype = assetCollection.assetCollectionSubtype;
+            
+            if (subtype == PHAssetCollectionSubtypeAlbumRegular) {
+                [userAlbums addObject:assetCollection];
+            } else if ([self.enabledAssetCollectionSubtypes containsObject:@(subtype)]) {
+                if (!smartAlbums[@(subtype)]) {
+                    smartAlbums[@(subtype)] = [NSMutableArray array];
+                }
+                [smartAlbums[@(subtype)] addObject:assetCollection];
+            }
+        }];
+    }
+    
+    NSMutableArray *assetCollections = [NSMutableArray array];
+    
+    // Fetch smart albums
+    for (NSNumber *assetCollectionSubtype in self.enabledAssetCollectionSubtypes) {
+        NSArray *collections = smartAlbums[assetCollectionSubtype];
+        
+        if (collections) {
+            [assetCollections addObjectsFromArray:collections];
+        }
+    }
+    
+    // Fetch user albums
+    [userAlbums enumerateObjectsUsingBlock:^(PHAssetCollection *assetCollection, NSUInteger index, BOOL *stop) {
+        [assetCollections addObject:assetCollection];
+    }];
+    
+    self.assetCollections = assetCollections;
+}
+
+#pragma mark - PHPhotoLibraryChangeObserver
+
+- (void)photoLibraryDidChange:(PHChange *)changeInstance
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        // Update fetch results
+        NSMutableArray *fetchResults = [self.fetchResults mutableCopy];
+        
+        [self.fetchResults enumerateObjectsUsingBlock:^(PHFetchResult *fetchResult, NSUInteger index, BOOL *stop) {
+            PHFetchResultChangeDetails *changeDetails = [changeInstance changeDetailsForFetchResult:fetchResult];
+            
+            if (changeDetails) {
+                [fetchResults replaceObjectAtIndex:index withObject:changeDetails.fetchResultAfterChanges];
+            }
+        }];
+        
+        if (![self.fetchResults isEqualToArray:fetchResults]) {
+            self.fetchResults = fetchResults;
+            
+            // Reload albums
+            [self updateAssetCollections];
+            [self.delegate qb_assetCollectionsDidChange];
+        }
+    });
+}
+
+@end
+
+
+
 static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     return CGSizeMake(size.width * scale, size.height * scale);
 }
@@ -26,12 +154,11 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
 
 @end
 
-@interface QBAlbumsViewController () <PHPhotoLibraryChangeObserver>
+
+@interface QBAlbumsViewController () <QBAssetCollectionsControllerDelegate>
 
 @property (nonatomic, strong) IBOutlet UIBarButtonItem *doneButton;
-
-@property (nonatomic, copy) NSArray *fetchResults;
-@property (nonatomic, copy) NSArray *assetCollections;
+@property (nonatomic, strong) QBAssetCollectionsController* collectionsController;
 
 @end
 
@@ -43,15 +170,8 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     
     [self setUpToolbarItems];
     
-    // Fetch user albums and smart albums
-    PHFetchResult *smartAlbums = [PHAssetCollection fetchAssetCollectionsWithType:PHAssetCollectionTypeSmartAlbum subtype:PHAssetCollectionSubtypeAny options:nil];
-    PHFetchResult *userAlbums = [PHAssetCollection fetchAssetCollectionsWithType:PHAssetCollectionTypeAlbum subtype:PHAssetCollectionSubtypeAny options:nil];
-    self.fetchResults = @[smartAlbums, userAlbums];
-    
-    [self updateAssetCollections];
-    
-    // Register observer
-    [[PHPhotoLibrary sharedPhotoLibrary] registerChangeObserver:self];
+    self.collectionsController = [[QBAssetCollectionsController alloc] initWithAssetCollectionSubtypes:self.imagePickerController.assetCollectionSubtypes];
+    self.collectionsController.delegate = self;
 }
 
 - (void)viewWillAppear:(BOOL)animated
@@ -64,21 +184,15 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     
     // Show/hide 'Done' button
     if (self.imagePickerController.allowsMultipleSelection) {
+        BOOL isMinimumSelectionLimitFulfilled = self.imagePickerController.minimumNumberOfSelection <= self.imagePickerController.selectedAssets.count;
+        self.doneButton.enabled = isMinimumSelectionLimitFulfilled;
         [self.navigationItem setRightBarButtonItem:self.doneButton animated:NO];
     } else {
         [self.navigationItem setRightBarButtonItem:nil animated:NO];
     }
     
-    [self updateControlState];
     [self updateSelectionInfo];
 }
-
-- (void)dealloc
-{
-    // Deregister observer
-    [[PHPhotoLibrary sharedPhotoLibrary] unregisterChangeObserver:self];
-}
-
 
 #pragma mark - Storyboard
 
@@ -86,7 +200,7 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
 {
     QBAssetsViewController *assetsViewController = segue.destinationViewController;
     assetsViewController.imagePickerController = self.imagePickerController;
-    assetsViewController.assetCollection = self.assetCollections[self.tableView.indexPathForSelectedRow.row];
+    assetsViewController.assetCollection = self.collectionsController.assetCollections[self.tableView.indexPathForSelectedRow.row];
 }
 
 
@@ -149,47 +263,6 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
 
 #pragma mark - Fetching Asset Collections
 
-- (void)updateAssetCollections
-{
-    // Filter albums
-    NSArray *assetCollectionSubtypes = self.imagePickerController.assetCollectionSubtypes;
-    NSMutableDictionary *smartAlbums = [NSMutableDictionary dictionaryWithCapacity:assetCollectionSubtypes.count];
-    NSMutableArray *userAlbums = [NSMutableArray array];
-    
-    for (PHFetchResult *fetchResult in self.fetchResults) {
-        [fetchResult enumerateObjectsUsingBlock:^(PHAssetCollection *assetCollection, NSUInteger index, BOOL *stop) {
-            PHAssetCollectionSubtype subtype = assetCollection.assetCollectionSubtype;
-            
-            if (subtype == PHAssetCollectionSubtypeAlbumRegular) {
-                [userAlbums addObject:assetCollection];
-            } else if ([assetCollectionSubtypes containsObject:@(subtype)]) {
-                if (!smartAlbums[@(subtype)]) {
-                    smartAlbums[@(subtype)] = [NSMutableArray array];
-                }
-                [smartAlbums[@(subtype)] addObject:assetCollection];
-            }
-        }];
-    }
-    
-    NSMutableArray *assetCollections = [NSMutableArray array];
-
-    // Fetch smart albums
-    for (NSNumber *assetCollectionSubtype in assetCollectionSubtypes) {
-        NSArray *collections = smartAlbums[assetCollectionSubtype];
-        
-        if (collections) {
-            [assetCollections addObjectsFromArray:collections];
-        }
-    }
-    
-    // Fetch user albums
-    [userAlbums enumerateObjectsUsingBlock:^(PHAssetCollection *assetCollection, NSUInteger index, BOOL *stop) {
-        [assetCollections addObject:assetCollection];
-    }];
-    
-    self.assetCollections = assetCollections;
-}
-
 - (UIImage *)placeholderImageWithSize:(CGSize)size
 {
     UIGraphicsBeginImageContext(size);
@@ -235,41 +308,11 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     return image;
 }
 
-
-#pragma mark - Checking for Selection Limit
-
-- (BOOL)isMinimumSelectionLimitFulfilled
-{
-    return (self.imagePickerController.minimumNumberOfSelection <= self.imagePickerController.selectedAssets.count);
-}
-
-- (BOOL)isMaximumSelectionLimitReached
-{
-    NSUInteger minimumNumberOfSelection = MAX(1, self.imagePickerController.minimumNumberOfSelection);
-    
-    if (minimumNumberOfSelection <= self.imagePickerController.maximumNumberOfSelection) {
-        return (self.imagePickerController.maximumNumberOfSelection <= self.imagePickerController.selectedAssets.count);
-    }
-    
-    return NO;
-}
-
-- (void)updateControlState
-{
-    self.doneButton.enabled = [self isMinimumSelectionLimitFulfilled];
-}
-
-
 #pragma mark - UITableViewDataSource
-
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView
-{
-    return 1;
-}
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
 {
-    return self.assetCollections.count;
+    return self.collectionsController.assetCollections.count;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
@@ -279,7 +322,7 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     cell.borderWidth = 1.0 / [[UIScreen mainScreen] scale];
     
     // Thumbnail
-    PHAssetCollection *assetCollection = self.assetCollections[indexPath.row];
+    PHAssetCollection *assetCollection = self.collectionsController.assetCollections[indexPath.row];
     
     PHFetchOptions *options = [PHFetchOptions new];
     
@@ -296,9 +339,12 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
             break;
     }
     
+    // SEB: don't fetch here, it's going to be slow with many iCloud albums
+    // use PHAssetCollection.estimatedAssetCount and PHAsset+fetchKeyAssetsInAssetCollection
+    // later: pre-fetch all assets in the background to supply them to the assets collection view
+    
     PHFetchResult *fetchResult = [PHAsset fetchAssetsInAssetCollection:assetCollection options:options];
     PHImageManager *imageManager = [PHImageManager defaultManager];
-    
     if (fetchResult.count >= 3) {
         cell.imageView3.hidden = NO;
         
@@ -363,31 +409,13 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     return cell;
 }
 
+#pragma mark - QBAssetCollectionsControllerDelegate
 
-#pragma mark - PHPhotoLibraryChangeObserver
-
-- (void)photoLibraryDidChange:(PHChange *)changeInstance
+- (void)qb_assetCollectionsDidChange
 {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        // Update fetch results
-        NSMutableArray *fetchResults = [self.fetchResults mutableCopy];
-        
-        [self.fetchResults enumerateObjectsUsingBlock:^(PHFetchResult *fetchResult, NSUInteger index, BOOL *stop) {
-            PHFetchResultChangeDetails *changeDetails = [changeInstance changeDetailsForFetchResult:fetchResult];
-            
-            if (changeDetails) {
-                [fetchResults replaceObjectAtIndex:index withObject:changeDetails.fetchResultAfterChanges];
-            }
-        }];
-        
-        if (![self.fetchResults isEqualToArray:fetchResults]) {
-            self.fetchResults = fetchResults;
-            
-            // Reload albums
-            [self updateAssetCollections];
-            [self.tableView reloadData];
-        }
-    });
+    // TODO: preserve selection
+    [self.tableView reloadData];
 }
+
 
 @end
