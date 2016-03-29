@@ -154,6 +154,7 @@
 @interface QBAlbumsViewController () <QBAssetCollectionsControllerDelegate>
 
 @property (nonatomic, strong) IBOutlet UIBarButtonItem *doneButton;
+@property (nonatomic, strong) UIBarButtonItem *infoToolbarItem;
 @property (nonatomic, strong) QBAssetCollectionsController* collectionsController;
 
 @end
@@ -221,32 +222,26 @@
     UIBarButtonItem *rightSpace = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:NULL];
     
     // Info label
+    self.infoToolbarItem = [[UIBarButtonItem alloc] initWithTitle:@"" style:UIBarButtonItemStylePlain target:nil action:NULL];
+    self.infoToolbarItem.enabled = NO;
     NSDictionary *attributes = @{ NSForegroundColorAttributeName: [UIColor blackColor] };
-    UIBarButtonItem *infoButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"" style:UIBarButtonItemStylePlain target:nil action:NULL];
-    infoButtonItem.enabled = NO;
-    [infoButtonItem setTitleTextAttributes:attributes forState:UIControlStateNormal];
-    [infoButtonItem setTitleTextAttributes:attributes forState:UIControlStateDisabled];
+    [self.infoToolbarItem setTitleTextAttributes:attributes forState:UIControlStateNormal];
+    [self.infoToolbarItem setTitleTextAttributes:attributes forState:UIControlStateDisabled];
     
-    self.toolbarItems = @[leftSpace, infoButtonItem, rightSpace];
+    self.toolbarItems = @[leftSpace, self.infoToolbarItem, rightSpace];
 }
 
 - (void)updateSelectionInfo
 {
-    NSMutableOrderedSet *selectedAssets = self.imagePickerController.selectedAssets;
+    NSUInteger count = self.imagePickerController.selectedAssets.count;
     
-    if (selectedAssets.count > 0) {
-        NSBundle *bundle = self.imagePickerController.assetBundle;
-        NSString *format;
-        if (selectedAssets.count > 1) {
-            format = NSLocalizedStringFromTableInBundle(@"assets.toolbar.items-selected", @"QBImagePicker", bundle, nil);
-        } else {
-            format = NSLocalizedStringFromTableInBundle(@"assets.toolbar.item-selected", @"QBImagePicker", bundle, nil);
-        }
-        
-        NSString *title = [NSString stringWithFormat:format, selectedAssets.count];
-        [(UIBarButtonItem *)self.toolbarItems[1] setTitle:title];
+    if (count > 0) {
+        NSString *identifier = count == 1 ? @"assets.toolbar.item-selected" : @"assets.toolbar.items-selected";
+        NSString *format = NSLocalizedStringFromTableInBundle(identifier, @"QBImagePicker", self.imagePickerController.assetBundle, nil);
+        NSString *title = [NSString stringWithFormat:format, count];
+        [self.infoToolbarItem setTitle:title];
     } else {
-        [(UIBarButtonItem *)self.toolbarItems[1] setTitle:@""];
+        [self.infoToolbarItem setTitle:@""];
     }
 }
 
