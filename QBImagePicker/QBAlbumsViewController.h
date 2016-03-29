@@ -7,11 +7,21 @@
 //
 
 #import <UIKit/UIKit.h>
+#import <Photos/Photos.h>
+
+@class QBAlbumsViewController;
+
+@protocol QBAlbumsViewControllerDelegate <NSObject>
+
+- (void)qb_albumsViewController:(QBAlbumsViewController *)albumsViewController didSelectAssetCollection:(PHAssetCollection *)assetCollection;
+
+@end
 
 @class QBImagePickerController;
 
 @interface QBAlbumsViewController : UITableViewController
 
+@property (nonatomic, weak) id<QBAlbumsViewControllerDelegate> delegate;
 @property (nonatomic, weak) QBImagePickerController *imagePickerController;
 
 @end

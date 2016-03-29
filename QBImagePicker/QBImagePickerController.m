@@ -11,8 +11,9 @@
 
 // ViewControllers
 #import "QBAlbumsViewController.h"
+#import "QBAssetsViewController.h"
 
-@interface QBImagePickerController ()
+@interface QBImagePickerController () <QBAlbumsViewControllerDelegate>
 
 @property (nonatomic, strong) UINavigationController *albumsNavigationController;
 
@@ -53,6 +54,9 @@
         // Set instance
         QBAlbumsViewController *albumsViewController = (QBAlbumsViewController *)self.albumsNavigationController.topViewController;
         albumsViewController.imagePickerController = self;
+        albumsViewController.delegate = self;
+        albumsViewController.navigationItem.title = NSLocalizedStringFromTableInBundle(@"albums.title", @"QBImagePicker", self.assetBundle, nil);
+        albumsViewController.navigationItem.prompt = self.prompt;
     }
     
     return self;
@@ -72,6 +76,28 @@
     [navigationController didMoveToParentViewController:self];
     
     self.albumsNavigationController = navigationController;
+}
+
+#pragma mark - QBAlbumsViewControllerDelegate
+
+- (void)qb_albumsViewController:(QBAlbumsViewController *)albumsViewController didSelectAssetCollection:(PHAssetCollection *)assetCollection
+{
+    UIStoryboard *storyboard = [UIStoryboard storyboardWithName:@"QBImagePicker" bundle:self.assetBundle];
+    QBAssetsViewController *assetsViewController = [storyboard instantiateViewControllerWithIdentifier:@"QBAssetsViewController"];
+    assetsViewController.imagePickerController = self;
+    
+    assetsViewController.navigationItem.prompt = self.prompt;
+    assetsViewController.showsNumberOfSelectedAssets = self.showsNumberOfSelectedAssets;
+    assetsViewController.numberOfColumnsInPortrait = self.numberOfColumnsInPortrait;
+    assetsViewController.numberOfColumnsInLandscape = self.numberOfColumnsInLandscape;
+    assetsViewController.allowsMultipleSelection = self.allowsMultipleSelection;
+    assetsViewController.minimumNumberOfSelection = self.minimumNumberOfSelection;
+    assetsViewController.maximumNumberOfSelection = self.maximumNumberOfSelection;
+    assetsViewController.mediaType = self.mediaType;
+    
+    assetsViewController.assetCollection = assetCollection;
+    
+    [self.albumsNavigationController pushViewController:assetsViewController animated:YES];
 }
 
 @end

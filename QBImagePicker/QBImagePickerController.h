@@ -25,6 +25,9 @@
 @end
 
 
+// TODO: make this a controller object which is albumVC and assetVC delegate
+// assetsVC does not implement deselection logic but asks its delegate to deselect an asset
+
 @interface QBImagePickerController : UIViewController
 
 @property (nonatomic, weak) id<QBImagePickerControllerDelegate> delegate;

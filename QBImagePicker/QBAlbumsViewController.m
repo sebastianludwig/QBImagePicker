@@ -7,7 +7,6 @@
 //
 
 #import "QBAlbumsViewController.h"
-#import <Photos/Photos.h>
 
 // Views
 #import "QBAlbumCell.h"
@@ -144,14 +143,10 @@
 
 
 
-@interface QBImagePickerController (Private)
-
-@property (nonatomic, strong) NSBundle *assetBundle;
-
-@end
-
 
 @interface QBAlbumsViewController () <QBAssetCollectionsControllerDelegate>
+
+@property (nonatomic, strong) NSBundle *assetBundle;
 
 @property (nonatomic, strong) IBOutlet UIBarButtonItem *doneButton;
 @property (nonatomic, strong) UIBarButtonItem *infoToolbarItem;
@@ -160,6 +155,19 @@
 @end
 
 @implementation QBAlbumsViewController
+
+- (instancetype)initWithCoder:(NSCoder *)aDecoder
+{
+    self = [super initWithCoder:aDecoder];
+    if (self) {
+        self.assetBundle = [NSBundle bundleForClass:[self class]];
+        NSString *bundlePath = [self.assetBundle pathForResource:@"QBImagePicker" ofType:@"bundle"];
+        if (bundlePath) {
+            self.assetBundle = [NSBundle bundleWithPath:bundlePath];
+        }
+    }
+    return self;
+}
 
 - (void)viewDidLoad
 {
@@ -170,17 +178,13 @@
     self.collectionsController = [[QBAssetCollectionsController alloc] initWithAssetCollectionSubtypes:self.imagePickerController.assetCollectionSubtypes];
     self.collectionsController.delegate = self;
     
-    UINib *nib = [UINib nibWithNibName:@"QBAlbumCell" bundle:self.imagePickerController.assetBundle];
+    UINib *nib = [UINib nibWithNibName:@"QBAlbumCell" bundle:self.assetBundle];
     [self.tableView registerNib:nib forCellReuseIdentifier:@"QBAlbumCell"];
 }
 
 - (void)viewWillAppear:(BOOL)animated
 {
     [super viewWillAppear:animated];
-    
-    // Configure navigation item
-    self.navigationItem.title = NSLocalizedStringFromTableInBundle(@"albums.title", @"QBImagePicker", self.imagePickerController.assetBundle, nil);
-    self.navigationItem.prompt = self.imagePickerController.prompt;
     
     // Show/hide 'Done' button
     if (self.imagePickerController.allowsMultipleSelection) {
@@ -237,7 +241,7 @@
     
     if (count > 0) {
         NSString *identifier = count == 1 ? @"assets.toolbar.item-selected" : @"assets.toolbar.items-selected";
-        NSString *format = NSLocalizedStringFromTableInBundle(identifier, @"QBImagePicker", self.imagePickerController.assetBundle, nil);
+        NSString *format = NSLocalizedStringFromTableInBundle(identifier, @"QBImagePicker", self.assetBundle, nil);
         NSString *title = [NSString stringWithFormat:format, count];
         [self.infoToolbarItem setTitle:title];
     } else {
@@ -264,10 +268,8 @@
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
 {
-    QBAssetsViewController *assetsViewController = [self.storyboard instantiateViewControllerWithIdentifier:@"QBAssetsViewController"];
-    assetsViewController.imagePickerController = self.imagePickerController;
-    assetsViewController.assetCollection = self.collectionsController.assetCollections[self.tableView.indexPathForSelectedRow.row];
-    [self.navigationController pushViewController:assetsViewController animated:YES];
+    PHAssetCollection *assetCollection = self.collectionsController.assetCollections[self.tableView.indexPathForSelectedRow.row];
+    [self.delegate qb_albumsViewController:self didSelectAssetCollection:assetCollection];
 }
 
 #pragma mark - QBAssetCollectionsControllerDelegate

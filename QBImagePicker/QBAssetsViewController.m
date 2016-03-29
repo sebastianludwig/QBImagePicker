@@ -7,7 +7,6 @@
 //
 
 #import "QBAssetsViewController.h"
-#import <Photos/Photos.h>
 
 // Views
 #import "QBImagePickerController.h"
@@ -56,6 +55,9 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
 
 @interface QBAssetsViewController () <PHPhotoLibraryChangeObserver, UICollectionViewDelegateFlowLayout>
 
+@property (nonatomic, strong) NSBundle *assetBundle;
+
+@property (nonatomic, strong) UIBarButtonItem *infoToolbarItem;
 @property (nonatomic, strong) IBOutlet UIBarButtonItem *doneButton;
 
 @property (nonatomic, strong) PHFetchResult *fetchResult;
@@ -70,12 +72,29 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
 
 @implementation QBAssetsViewController
 
+- (instancetype)initWithCoder:(NSCoder *)aDecoder
+{
+    self = [super initWithCoder:aDecoder];
+    if (self) {
+        self.assetBundle = [NSBundle bundleForClass:[self class]];
+        NSString *bundlePath = [self.assetBundle pathForResource:@"QBImagePicker" ofType:@"bundle"];
+        if (bundlePath) {
+            self.assetBundle = [NSBundle bundleWithPath:bundlePath];
+        }
+    }
+    return self;
+}
+
 - (void)viewDidLoad
 {
     [super viewDidLoad];
     
+    self.imageManager = [PHCachingImageManager new];
+    
     [self setUpToolbarItems];
     [self resetCachedAssets];
+    
+    self.collectionView.allowsMultipleSelection = self.allowsMultipleSelection;
     
     // Register observer
     [[PHPhotoLibrary sharedPhotoLibrary] registerChangeObserver:self];
@@ -87,13 +106,10 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     
     // Configure navigation item
     self.navigationItem.title = self.assetCollection.localizedTitle;
-    self.navigationItem.prompt = self.imagePickerController.prompt;
     
-    // Configure collection view
-    self.collectionView.allowsMultipleSelection = self.imagePickerController.allowsMultipleSelection;
     
     // Show/hide 'Done' button
-    if (self.imagePickerController.allowsMultipleSelection) {
+    if (self.allowsMultipleSelection) {
         [self.navigationItem setRightBarButtonItem:self.doneButton animated:NO];
     } else {
         [self.navigationItem setRightBarButtonItem:nil animated:NO];
@@ -157,19 +173,16 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     [self.collectionView reloadData];
 }
 
-- (PHCachingImageManager *)imageManager
+- (void)setAllowsMultipleSelection:(BOOL)allowsMultipleSelection
 {
-    if (_imageManager == nil) {
-        _imageManager = [PHCachingImageManager new];
-    }
-    
-    return _imageManager;
+    _allowsMultipleSelection = allowsMultipleSelection;
+    self.collectionView.allowsMultipleSelection = _allowsMultipleSelection;
 }
 
 - (BOOL)isAutoDeselectEnabled
 {
-    return (self.imagePickerController.maximumNumberOfSelection == 1
-            && self.imagePickerController.maximumNumberOfSelection >= self.imagePickerController.minimumNumberOfSelection);
+    return (self.maximumNumberOfSelection == 1
+            && self.maximumNumberOfSelection >= self.minimumNumberOfSelection);
 }
 
 
@@ -194,31 +207,25 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     
     // Info label
     NSDictionary *attributes = @{ NSForegroundColorAttributeName: [UIColor blackColor] };
-    UIBarButtonItem *infoButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"" style:UIBarButtonItemStylePlain target:nil action:NULL];
-    infoButtonItem.enabled = NO;
-    [infoButtonItem setTitleTextAttributes:attributes forState:UIControlStateNormal];
-    [infoButtonItem setTitleTextAttributes:attributes forState:UIControlStateDisabled];
+    self.infoToolbarItem = [[UIBarButtonItem alloc] initWithTitle:@"" style:UIBarButtonItemStylePlain target:nil action:NULL];
+    self.infoToolbarItem.enabled = NO;
+    [self.infoToolbarItem setTitleTextAttributes:attributes forState:UIControlStateNormal];
+    [self.infoToolbarItem setTitleTextAttributes:attributes forState:UIControlStateDisabled];
     
-    self.toolbarItems = @[leftSpace, infoButtonItem, rightSpace];
+    self.toolbarItems = @[leftSpace, self.infoToolbarItem, rightSpace];
 }
 
 - (void)updateSelectionInfo
 {
-    NSMutableOrderedSet *selectedAssets = self.imagePickerController.selectedAssets;
+    NSUInteger count = self.imagePickerController.selectedAssets.count;
     
-    if (selectedAssets.count > 0) {
-        NSBundle *bundle = self.imagePickerController.assetBundle;
-        NSString *format;
-        if (selectedAssets.count > 1) {
-            format = NSLocalizedStringFromTableInBundle(@"assets.toolbar.items-selected", @"QBImagePicker", bundle, nil);
-        } else {
-            format = NSLocalizedStringFromTableInBundle(@"assets.toolbar.item-selected", @"QBImagePicker", bundle, nil);
-        }
-        
-        NSString *title = [NSString stringWithFormat:format, selectedAssets.count];
-        [(UIBarButtonItem *)self.toolbarItems[1] setTitle:title];
+    if (count > 0) {
+        NSString *identifier = count == 1 ? @"assets.toolbar.item-selected" : @"assets.toolbar.items-selected";
+        NSString *format = NSLocalizedStringFromTableInBundle(identifier, @"QBImagePicker", self.assetBundle, nil);
+        NSString *title = [NSString stringWithFormat:format, count];
+        [self.infoToolbarItem setTitle:title];
     } else {
-        [(UIBarButtonItem *)self.toolbarItems[1] setTitle:@""];
+        [self.infoToolbarItem setTitle:@""];
     }
 }
 
@@ -230,7 +237,7 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     if (self.assetCollection) {
         PHFetchOptions *options = [PHFetchOptions new];
         
-        switch (self.imagePickerController.mediaType) {
+        switch (self.mediaType) {
             case QBImagePickerMediaTypeImage:
                 options.predicate = [NSPredicate predicateWithFormat:@"mediaType == %ld", PHAssetMediaTypeImage];
                 break;
@@ -259,17 +266,12 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
 
 #pragma mark - Checking for Selection Limit
 
-- (BOOL)isMinimumSelectionLimitFulfilled
-{
-   return (self.imagePickerController.minimumNumberOfSelection <= self.imagePickerController.selectedAssets.count);
-}
-
 - (BOOL)isMaximumSelectionLimitReached
 {
-    NSUInteger minimumNumberOfSelection = MAX(1, self.imagePickerController.minimumNumberOfSelection);
+    NSUInteger minimumNumberOfSelection = MAX(1, self.minimumNumberOfSelection);
    
-    if (minimumNumberOfSelection <= self.imagePickerController.maximumNumberOfSelection) {
-        return (self.imagePickerController.maximumNumberOfSelection <= self.imagePickerController.selectedAssets.count);
+    if (minimumNumberOfSelection <= self.maximumNumberOfSelection) {
+        return (self.maximumNumberOfSelection <= self.imagePickerController.selectedAssets.count);
     }
    
     return NO;
@@ -277,7 +279,8 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
 
 - (void)updateDoneButtonState
 {
-    self.doneButton.enabled = [self isMinimumSelectionLimitFulfilled];
+    BOOL isMinimumSelectionLimitFulfilled = self.minimumNumberOfSelection <= self.imagePickerController.selectedAssets.count;
+    self.doneButton.enabled = isMinimumSelectionLimitFulfilled;
 }
 
 
@@ -442,7 +445,7 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
 {
     QBAssetCell *cell = [collectionView dequeueReusableCellWithReuseIdentifier:@"AssetCell" forIndexPath:indexPath];
     cell.tag = indexPath.item;
-    cell.showsOverlayViewWhenSelected = self.imagePickerController.allowsMultipleSelection;
+    cell.showsOverlayViewWhenSelected = self.allowsMultipleSelection;
     
     // Image
     PHAsset *asset = self.fetchResult[indexPath.item];
@@ -490,61 +493,61 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
 
 - (UICollectionReusableView *)collectionView:(UICollectionView *)collectionView viewForSupplementaryElementOfKind:(NSString *)kind atIndexPath:(NSIndexPath *)indexPath
 {
-    if (kind == UICollectionElementKindSectionFooter) {
-        UICollectionReusableView *footerView = [collectionView dequeueReusableSupplementaryViewOfKind:UICollectionElementKindSectionFooter
-                                                                                  withReuseIdentifier:@"FooterView"
-                                                                                         forIndexPath:indexPath];
-        
-        // Number of assets
-        UILabel *label = (UILabel *)[footerView viewWithTag:1];
-        
-        NSBundle *bundle = self.imagePickerController.assetBundle;
-        NSUInteger numberOfPhotos = [self.fetchResult countOfAssetsWithMediaType:PHAssetMediaTypeImage];
-        NSUInteger numberOfVideos = [self.fetchResult countOfAssetsWithMediaType:PHAssetMediaTypeVideo];
-        
-        switch (self.imagePickerController.mediaType) {
-            case QBImagePickerMediaTypeAny:
-            {
-                NSString *format;
-                if (numberOfPhotos == 1) {
-                    if (numberOfVideos == 1) {
-                        format = NSLocalizedStringFromTableInBundle(@"assets.footer.photo-and-video", @"QBImagePicker", bundle, nil);
-                    } else {
-                        format = NSLocalizedStringFromTableInBundle(@"assets.footer.photo-and-videos", @"QBImagePicker", bundle, nil);
-                    }
-                } else if (numberOfVideos == 1) {
-                    format = NSLocalizedStringFromTableInBundle(@"assets.footer.photos-and-video", @"QBImagePicker", bundle, nil);
-                } else {
-                    format = NSLocalizedStringFromTableInBundle(@"assets.footer.photos-and-videos", @"QBImagePicker", bundle, nil);
-                }
-                
-                label.text = [NSString stringWithFormat:format, numberOfPhotos, numberOfVideos];
-            }
-                break;
-                
-            case QBImagePickerMediaTypeImage:
-            {
-                NSString *key = (numberOfPhotos == 1) ? @"assets.footer.photo" : @"assets.footer.photos";
-                NSString *format = NSLocalizedStringFromTableInBundle(key, @"QBImagePicker", bundle, nil);
-                
-                label.text = [NSString stringWithFormat:format, numberOfPhotos];
-            }
-                break;
-                
-            case QBImagePickerMediaTypeVideo:
-            {
-                NSString *key = (numberOfVideos == 1) ? @"assets.footer.video" : @"assets.footer.videos";
-                NSString *format = NSLocalizedStringFromTableInBundle(key, @"QBImagePicker", bundle, nil);
-                
-                label.text = [NSString stringWithFormat:format, numberOfVideos];
-            }
-                break;
-        }
-        
-        return footerView;
+    if (kind != UICollectionElementKindSectionFooter) {
+        return nil;
     }
     
-    return nil;
+    UICollectionReusableView *footerView = [collectionView dequeueReusableSupplementaryViewOfKind:UICollectionElementKindSectionFooter
+                                                                              withReuseIdentifier:@"FooterView"
+                                                                                     forIndexPath:indexPath];
+    
+    // Number of assets
+    UILabel *label = (UILabel *)[footerView viewWithTag:1];
+    
+    NSBundle *bundle = self.assetBundle;
+    NSUInteger numberOfPhotos = [self.fetchResult countOfAssetsWithMediaType:PHAssetMediaTypeImage];
+    NSUInteger numberOfVideos = [self.fetchResult countOfAssetsWithMediaType:PHAssetMediaTypeVideo];
+    
+    switch (self.mediaType) {
+        case QBImagePickerMediaTypeAny:
+        {
+            NSString *format;
+            if (numberOfPhotos == 1) {
+                if (numberOfVideos == 1) {
+                    format = NSLocalizedStringFromTableInBundle(@"assets.footer.photo-and-video", @"QBImagePicker", bundle, nil);
+                } else {
+                    format = NSLocalizedStringFromTableInBundle(@"assets.footer.photo-and-videos", @"QBImagePicker", bundle, nil);
+                }
+            } else if (numberOfVideos == 1) {
+                format = NSLocalizedStringFromTableInBundle(@"assets.footer.photos-and-video", @"QBImagePicker", bundle, nil);
+            } else {
+                format = NSLocalizedStringFromTableInBundle(@"assets.footer.photos-and-videos", @"QBImagePicker", bundle, nil);
+            }
+            
+            label.text = [NSString stringWithFormat:format, numberOfPhotos, numberOfVideos];
+        }
+            break;
+            
+        case QBImagePickerMediaTypeImage:
+        {
+            NSString *key = (numberOfPhotos == 1) ? @"assets.footer.photo" : @"assets.footer.photos";
+            NSString *format = NSLocalizedStringFromTableInBundle(key, @"QBImagePicker", bundle, nil);
+            
+            label.text = [NSString stringWithFormat:format, numberOfPhotos];
+        }
+            break;
+            
+        case QBImagePickerMediaTypeVideo:
+        {
+            NSString *key = (numberOfVideos == 1) ? @"assets.footer.video" : @"assets.footer.videos";
+            NSString *format = NSLocalizedStringFromTableInBundle(key, @"QBImagePicker", bundle, nil);
+            
+            label.text = [NSString stringWithFormat:format, numberOfVideos];
+        }
+            break;
+    }
+    
+    return footerView;
 }
 
 
@@ -571,7 +574,7 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     
     PHAsset *asset = self.fetchResult[indexPath.item];
     
-    if (imagePickerController.allowsMultipleSelection) {
+    if (self.allowsMultipleSelection) {
         if ([self isAutoDeselectEnabled] && selectedAssets.count > 0) {
             // Remove previous selected asset from set
             [selectedAssets removeObjectAtIndex:0];
@@ -589,7 +592,7 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
         
         [self updateDoneButtonState];
         
-        if (imagePickerController.showsNumberOfSelectedAssets) {
+        if (self.showsNumberOfSelectedAssets) {
             [self updateSelectionInfo];
             
             if (selectedAssets.count == 1) {
@@ -610,7 +613,7 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
 
 - (void)collectionView:(UICollectionView *)collectionView didDeselectItemAtIndexPath:(NSIndexPath *)indexPath
 {
-    if (!self.imagePickerController.allowsMultipleSelection) {
+    if (!self.allowsMultipleSelection) {
         return;
     }
     
@@ -626,7 +629,7 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     
     [self updateDoneButtonState];
     
-    if (imagePickerController.showsNumberOfSelectedAssets) {
+    if (self.showsNumberOfSelectedAssets) {
         [self updateSelectionInfo];
         
         if (selectedAssets.count == 0) {
@@ -647,9 +650,9 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
 {
     NSUInteger numberOfColumns;
     if (UIInterfaceOrientationIsPortrait([[UIApplication sharedApplication] statusBarOrientation])) {
-        numberOfColumns = self.imagePickerController.numberOfColumnsInPortrait;
+        numberOfColumns = self.numberOfColumnsInPortrait;
     } else {
-        numberOfColumns = self.imagePickerController.numberOfColumnsInLandscape;
+        numberOfColumns = self.numberOfColumnsInLandscape;
     }
     
     CGFloat width = (CGRectGetWidth(self.view.frame) - 2.0 * (numberOfColumns - 1)) / numberOfColumns;
