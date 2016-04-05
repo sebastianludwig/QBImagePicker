@@ -9,19 +9,12 @@
 #import "QBAssetsViewController.h"
 
 // Views
-#import "QBImagePickerController.h"
 #import "QBAssetCell.h"
 #import "QBVideoIndicatorView.h"
 
 static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     return CGSizeMake(size.width * scale, size.height * scale);
 }
-
-@interface QBImagePickerController (Private)
-
-@property (nonatomic, strong) NSBundle *assetBundle;
-
-@end
 
 @implementation NSIndexSet (Convenience)
 
@@ -76,11 +69,12 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
 {
     self = [super initWithCoder:aDecoder];
     if (self) {
-        self.assetBundle = [NSBundle bundleForClass:[self class]];
-        NSString *bundlePath = [self.assetBundle pathForResource:@"QBImagePicker" ofType:@"bundle"];
+        _assetBundle = [NSBundle bundleForClass:[self class]];      // TODO: dry this up - static helper?
+        NSString *bundlePath = [_assetBundle pathForResource:@"QBImagePicker" ofType:@"bundle"];
         if (bundlePath) {
-            self.assetBundle = [NSBundle bundleWithPath:bundlePath];
+            _assetBundle = [NSBundle bundleWithPath:bundlePath];
         }
+        _assetSelection = [QBAssetSelection new];
     }
     return self;
 }
@@ -94,7 +88,7 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     [self setUpToolbarItems];
     [self resetCachedAssets];
     
-    self.collectionView.allowsMultipleSelection = self.allowsMultipleSelection;
+    self.collectionView.allowsMultipleSelection = self.assetSelection.allowsMultipleSelection;
     
     // Register observer
     [[PHPhotoLibrary sharedPhotoLibrary] registerChangeObserver:self];
@@ -109,7 +103,7 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     
     
     // Show/hide 'Done' button
-    if (self.allowsMultipleSelection) {
+    if (self.assetSelection.allowsMultipleSelection) {
         [self.navigationItem setRightBarButtonItem:self.doneButton animated:NO];
     } else {
         [self.navigationItem setRightBarButtonItem:nil animated:NO];
@@ -173,16 +167,10 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     [self.collectionView reloadData];
 }
 
-- (void)setAllowsMultipleSelection:(BOOL)allowsMultipleSelection
+- (void)setAssetSelection:(QBAssetSelection *)assetSelection
 {
-    _allowsMultipleSelection = allowsMultipleSelection;
-    self.collectionView.allowsMultipleSelection = _allowsMultipleSelection;
-}
-
-- (BOOL)isAutoDeselectEnabled
-{
-    return (self.maximumNumberOfSelection == 1
-            && self.maximumNumberOfSelection >= self.minimumNumberOfSelection);
+    _assetSelection = assetSelection;
+    self.collectionView.allowsMultipleSelection = _assetSelection.allowsMultipleSelection;
 }
 
 
@@ -190,10 +178,7 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
 
 - (IBAction)done:(id)sender
 {
-    if ([self.imagePickerController.delegate respondsToSelector:@selector(qb_imagePickerController:didFinishPickingAssets:)]) {
-        [self.imagePickerController.delegate qb_imagePickerController:self.imagePickerController
-                                               didFinishPickingAssets:self.imagePickerController.selectedAssets.array];
-    }
+    [self.delegate qb_assetsViewControllerDidFinish:self];
 }
 
 
@@ -217,7 +202,7 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
 
 - (void)updateSelectionInfo
 {
-    NSUInteger count = self.imagePickerController.selectedAssets.count;
+    NSUInteger count = self.assetSelection.count;
     
     if (count > 0) {
         NSString *identifier = count == 1 ? @"assets.toolbar.item-selected" : @"assets.toolbar.items-selected";
@@ -252,9 +237,9 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
         
         self.fetchResult = [PHAsset fetchAssetsInAssetCollection:self.assetCollection options:options];
         
-        if ([self isAutoDeselectEnabled] && self.imagePickerController.selectedAssets.count > 0) {
+        if (self.assetSelection.isAutoDeselectEnabled && self.assetSelection.count > 0) {
             // Get index of previous selected asset
-            PHAsset *asset = [self.imagePickerController.selectedAssets firstObject];
+            PHAsset *asset = [self.assetSelection.assets firstObject];
             NSInteger assetIndex = [self.fetchResult indexOfObject:asset];
             self.lastSelectedItemIndexPath = [NSIndexPath indexPathForItem:assetIndex inSection:0];
         }
@@ -266,21 +251,10 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
 
 #pragma mark - Checking for Selection Limit
 
-- (BOOL)isMaximumSelectionLimitReached
-{
-    NSUInteger minimumNumberOfSelection = MAX(1, self.minimumNumberOfSelection);
-   
-    if (minimumNumberOfSelection <= self.maximumNumberOfSelection) {
-        return (self.maximumNumberOfSelection <= self.imagePickerController.selectedAssets.count);
-    }
-   
-    return NO;
-}
 
 - (void)updateDoneButtonState
 {
-    BOOL isMinimumSelectionLimitFulfilled = self.minimumNumberOfSelection <= self.imagePickerController.selectedAssets.count;
-    self.doneButton.enabled = isMinimumSelectionLimitFulfilled;
+    self.doneButton.enabled = self.assetSelection.isMinimumSelectionLimitFulfilled;
 }
 
 
@@ -445,7 +419,7 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
 {
     QBAssetCell *cell = [collectionView dequeueReusableCellWithReuseIdentifier:@"AssetCell" forIndexPath:indexPath];
     cell.tag = indexPath.item;
-    cell.showsOverlayViewWhenSelected = self.allowsMultipleSelection;
+    cell.showsOverlayViewWhenSelected = self.assetSelection.allowsMultipleSelection;
     
     // Image
     PHAsset *asset = self.fetchResult[indexPath.item];
@@ -483,7 +457,7 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     }
     
     // Selection state
-    if ([self.imagePickerController.selectedAssets containsObject:asset]) {
+    if ([self.assetSelection containsAsset:asset]) {
         [cell setSelected:YES];
         [collectionView selectItemAtIndexPath:indexPath animated:NO scrollPosition:UICollectionViewScrollPositionNone];
     }
@@ -555,38 +529,39 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
 
 - (BOOL)collectionView:(UICollectionView *)collectionView shouldSelectItemAtIndexPath:(NSIndexPath *)indexPath
 {
-    if ([self.imagePickerController.delegate respondsToSelector:@selector(qb_imagePickerController:shouldSelectAsset:)]) {
+    if ([self.delegate respondsToSelector:@selector(qb_assetsViewController:shouldSelectAsset:)]) {
         PHAsset *asset = self.fetchResult[indexPath.item];
-        return [self.imagePickerController.delegate qb_imagePickerController:self.imagePickerController shouldSelectAsset:asset];
+        return [self.delegate qb_assetsViewController:self shouldSelectAsset:asset];
     }
     
-    if ([self isAutoDeselectEnabled]) {
+    if ([self.assetSelection isAutoDeselectEnabled]) {
         return YES;
     }
     
-    return ![self isMaximumSelectionLimitReached];
+    return ![self.assetSelection isMaximumSelectionLimitReached];
 }
 
 - (void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)indexPath
 {
-    QBImagePickerController *imagePickerController = self.imagePickerController;
-    NSMutableOrderedSet *selectedAssets = imagePickerController.selectedAssets;
-    
     PHAsset *asset = self.fetchResult[indexPath.item];
     
-    if (self.allowsMultipleSelection) {
-        if ([self isAutoDeselectEnabled] && selectedAssets.count > 0) {
+    // Add asset to set
+    [self.assetSelection addAsset:asset];
+    
+    if ([self.delegate respondsToSelector:@selector(qb_assetsViewController:didSelectAsset:)]) {
+        [self.delegate qb_assetsViewController:self didSelectAsset:asset];
+    }
+    
+    if (self.assetSelection.allowsMultipleSelection) {
+        if (self.assetSelection.isAutoDeselectEnabled && self.assetSelection.count > 1) {
             // Remove previous selected asset from set
-            [selectedAssets removeObjectAtIndex:0];
+            [self.assetSelection removeObjectAtIndex:0];
             
             // Deselect previous selected asset
             if (self.lastSelectedItemIndexPath) {
                 [collectionView deselectItemAtIndexPath:self.lastSelectedItemIndexPath animated:NO];
             }
         }
-        
-        // Add asset to set
-        [selectedAssets addObject:asset];
         
         self.lastSelectedItemIndexPath = indexPath;
         
@@ -595,35 +570,28 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
         if (self.showsNumberOfSelectedAssets) {
             [self updateSelectionInfo];
             
-            if (selectedAssets.count == 1) {
+            if (self.assetSelection.count == 1) {
                 // Show toolbar
                 [self.navigationController setToolbarHidden:NO animated:YES];
             }
         }
     } else {
-        if ([imagePickerController.delegate respondsToSelector:@selector(qb_imagePickerController:didFinishPickingAssets:)]) {
-            [imagePickerController.delegate qb_imagePickerController:imagePickerController didFinishPickingAssets:@[asset]];
+        if ([self.delegate respondsToSelector:@selector(qb_assetsViewControllerDidFinish:)]) {
+            [self.delegate qb_assetsViewControllerDidFinish:self];
         }
-    }
-    
-    if ([imagePickerController.delegate respondsToSelector:@selector(qb_imagePickerController:didSelectAsset:)]) {
-        [imagePickerController.delegate qb_imagePickerController:imagePickerController didSelectAsset:asset];
     }
 }
 
 - (void)collectionView:(UICollectionView *)collectionView didDeselectItemAtIndexPath:(NSIndexPath *)indexPath
 {
-    if (!self.allowsMultipleSelection) {
+    if (!self.assetSelection.allowsMultipleSelection) {
         return;
     }
-    
-    QBImagePickerController *imagePickerController = self.imagePickerController;
-    NSMutableOrderedSet *selectedAssets = imagePickerController.selectedAssets;
     
     PHAsset *asset = self.fetchResult[indexPath.item];
     
     // Remove asset from set
-    [selectedAssets removeObject:asset];
+    [self.assetSelection removeAsset:asset];
     
     self.lastSelectedItemIndexPath = nil;
     
@@ -632,14 +600,14 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     if (self.showsNumberOfSelectedAssets) {
         [self updateSelectionInfo];
         
-        if (selectedAssets.count == 0) {
+        if (self.assetSelection.count == 0) {
             // Hide toolbar
             [self.navigationController setToolbarHidden:YES animated:YES];
         }
     }
     
-    if ([imagePickerController.delegate respondsToSelector:@selector(qb_imagePickerController:didDeselectAsset:)]) {
-        [imagePickerController.delegate qb_imagePickerController:imagePickerController didDeselectAsset:asset];
+    if ([self.delegate respondsToSelector:@selector(qb_assetsViewController:didDeselectAsset:)]) {
+        [self.delegate qb_assetsViewController:self didDeselectAsset:asset];
     }
 }
 

@@ -15,11 +15,6 @@
 
 @implementation ViewController
 
-- (void)viewDidLoad
-{
-    [super viewDidLoad];
-}
-
 
 #pragma mark - UITableViewDelegate
 
@@ -28,8 +23,11 @@
     QBImagePickerController *imagePickerController = [QBImagePickerController new];
     imagePickerController.delegate = self;
     imagePickerController.mediaType = QBImagePickerMediaTypeAny;
-    imagePickerController.allowsMultipleSelection = (indexPath.section == 1);
     imagePickerController.showsNumberOfSelectedAssets = YES;
+    
+    imagePickerController.prompt = @"DO IT!";
+    //    imagePickerController.mediaType = QBImagePickerMediaTypeImage;
+    imagePickerController.allowsMultipleSelection = (indexPath.section == 1);
     
     if (indexPath.section == 1) {
         switch (indexPath.row) {
@@ -42,13 +40,13 @@
                 break;
                 
             case 3:
-                imagePickerController.minimumNumberOfSelection = 3;
-                imagePickerController.maximumNumberOfSelection = 6;
+                imagePickerController.minimumNumberOfSelection = 1;
+                imagePickerController.maximumNumberOfSelection = 1;
                 break;
 
             case 4:
                 imagePickerController.maximumNumberOfSelection = 2;
-                [imagePickerController.selectedAssets addObject:[PHAsset fetchAssetsWithOptions:nil].lastObject];
+                [imagePickerController.assetSelection addAsset:[PHAsset fetchAssetsWithOptions:nil].lastObject];
                 break;
                 
             default:

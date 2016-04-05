@@ -13,9 +13,10 @@
 #import "QBAlbumsViewController.h"
 #import "QBAssetsViewController.h"
 
-@interface QBImagePickerController () <QBAlbumsViewControllerDelegate>
+@interface QBImagePickerController () <QBAlbumsViewControllerDelegate, QBAssetsViewControllerDelegate>
 
 @property (nonatomic, strong) UINavigationController *albumsNavigationController;
+@property (nonatomic, strong) QBAlbumsViewController *albumsViewController;
 
 @property (nonatomic, strong) NSBundle *assetBundle;
 
@@ -29,53 +30,91 @@
     
     if (self) {
         // Set default values
-        self.assetCollectionSubtypes = @[
-                                         @(PHAssetCollectionSubtypeSmartAlbumUserLibrary),
-                                         @(PHAssetCollectionSubtypeAlbumMyPhotoStream),
-                                         @(PHAssetCollectionSubtypeSmartAlbumPanoramas),
-                                         @(PHAssetCollectionSubtypeSmartAlbumVideos),
-                                         @(PHAssetCollectionSubtypeSmartAlbumBursts)
-                                         ];
-        self.minimumNumberOfSelection = 1;
-        self.numberOfColumnsInPortrait = 4;
-        self.numberOfColumnsInLandscape = 7;
+        _numberOfColumnsInPortrait = 4;
+        _numberOfColumnsInLandscape = 7;
         
-        _selectedAssets = [NSMutableOrderedSet orderedSet];
+        _assetSelection = [QBAssetSelection new];
         
         // Get asset bundle
-        self.assetBundle = [NSBundle bundleForClass:[self class]];
-        NSString *bundlePath = [self.assetBundle pathForResource:@"QBImagePicker" ofType:@"bundle"];
+        _assetBundle = [NSBundle bundleForClass:[self class]];
+        NSString *bundlePath = [_assetBundle pathForResource:@"QBImagePicker" ofType:@"bundle"];
         if (bundlePath) {
-            self.assetBundle = [NSBundle bundleWithPath:bundlePath];
+            _assetBundle = [NSBundle bundleWithPath:bundlePath];
         }
         
-        [self setUpAlbumsViewController];
-        
-        // Set instance
-        QBAlbumsViewController *albumsViewController = (QBAlbumsViewController *)self.albumsNavigationController.topViewController;
-        albumsViewController.imagePickerController = self;
-        albumsViewController.delegate = self;
-        albumsViewController.navigationItem.title = NSLocalizedStringFromTableInBundle(@"albums.title", @"QBImagePicker", self.assetBundle, nil);
-        albumsViewController.navigationItem.prompt = self.prompt;
+        [self addAlbumsViewController];
     }
     
     return self;
 }
 
-- (void)setUpAlbumsViewController
+- (void)addAlbumsViewController
 {
-    // Add QBAlbumsViewController as a child
-    UIStoryboard *storyboard = [UIStoryboard storyboardWithName:@"QBImagePicker" bundle:self.assetBundle];
-    UINavigationController *navigationController = [storyboard instantiateViewControllerWithIdentifier:@"QBAlbumsNavigationController"];
+    self.albumsViewController = [[QBAlbumsViewController alloc] init];
+    self.albumsViewController.delegate = self;
+    self.albumsViewController.assetSelection = self.assetSelection;
+    self.albumsViewController.mediaType = self.mediaType;
+    self.albumsViewController.navigationItem.title = NSLocalizedStringFromTableInBundle(@"albums.title", @"QBImagePicker", _assetBundle, nil);
     
-    [self addChildViewController:navigationController];
+    self.albumsNavigationController = [[UINavigationController alloc] initWithRootViewController:self.albumsViewController];
     
-    navigationController.view.frame = self.view.bounds;
-    [self.view addSubview:navigationController.view];
+    [self addChildViewController:self.albumsNavigationController];
     
-    [navigationController didMoveToParentViewController:self];
-    
-    self.albumsNavigationController = navigationController;
+    self.albumsNavigationController.view.frame = self.view.bounds;
+    self.albumsNavigationController.view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    self.albumsNavigationController.view.translatesAutoresizingMaskIntoConstraints = YES;
+    [self.view addSubview:self.albumsNavigationController.view];
+
+    [self.albumsNavigationController didMoveToParentViewController:self];
+}
+
+- (NSString *)prompt
+{
+    return self.albumsViewController.navigationItem.prompt;
+}
+
+- (void)setPrompt:(NSString *)prompt
+{
+    self.albumsViewController.navigationItem.prompt = prompt;
+}
+
+- (BOOL)allowsMultipleSelection
+{
+    return self.assetSelection.allowsMultipleSelection;
+}
+
+- (void)setAllowsMultipleSelection:(BOOL)allowsMultipleSelection
+{
+    self.assetSelection.allowsMultipleSelection = allowsMultipleSelection;
+}
+
+- (NSUInteger)minimumNumberOfSelection {
+    return self.assetSelection.minimumNumberOfAssets;
+}
+
+- (void)setMinimumNumberOfSelection:(NSUInteger)minimumNumberOfSelection
+{
+    self.assetSelection.minimumNumberOfAssets = minimumNumberOfSelection;
+}
+
+- (NSUInteger)maximumNumberOfSelection
+{
+    return self.assetSelection.maximumNumberOfAssets;
+}
+
+- (void)setMaximumNumberOfSelection:(NSUInteger)maximumNumberOfSelection
+{
+    self.assetSelection.maximumNumberOfAssets = maximumNumberOfSelection;
+}
+
+- (NSArray *)assetCollectionSubtypes
+{
+    return self.albumsViewController.collectionsController.enabledAssetCollectionSubtypes;
+}
+
+- (void)setAssetCollectionSubtypes:(NSArray *)assetCollectionSubtypes
+{
+    self.albumsViewController.collectionsController.enabledAssetCollectionSubtypes = assetCollectionSubtypes;
 }
 
 #pragma mark - QBAlbumsViewControllerDelegate
@@ -84,20 +123,41 @@
 {
     UIStoryboard *storyboard = [UIStoryboard storyboardWithName:@"QBImagePicker" bundle:self.assetBundle];
     QBAssetsViewController *assetsViewController = [storyboard instantiateViewControllerWithIdentifier:@"QBAssetsViewController"];
-    assetsViewController.imagePickerController = self;
-    
+    assetsViewController.delegate = self;
     assetsViewController.navigationItem.prompt = self.prompt;
     assetsViewController.showsNumberOfSelectedAssets = self.showsNumberOfSelectedAssets;
     assetsViewController.numberOfColumnsInPortrait = self.numberOfColumnsInPortrait;
     assetsViewController.numberOfColumnsInLandscape = self.numberOfColumnsInLandscape;
-    assetsViewController.allowsMultipleSelection = self.allowsMultipleSelection;
-    assetsViewController.minimumNumberOfSelection = self.minimumNumberOfSelection;
-    assetsViewController.maximumNumberOfSelection = self.maximumNumberOfSelection;
+    
+    assetsViewController.assetSelection = self.assetSelection;
     assetsViewController.mediaType = self.mediaType;
     
     assetsViewController.assetCollection = assetCollection;
     
     [self.albumsNavigationController pushViewController:assetsViewController animated:YES];
+}
+
+- (void)qb_albumsViewControllerDidFinish:(QBAlbumsViewController *)albumsViewController
+{
+    if ([self.delegate respondsToSelector:@selector(qb_imagePickerController:didFinishPickingAssets:)]) {
+        [self.delegate qb_imagePickerController:self didFinishPickingAssets:self.assetSelection.assets.array];
+    }
+}
+
+- (void)qb_albumsViewControllerDidCancel:(QBAlbumsViewController *)albumsViewController
+{
+    if ([self.delegate respondsToSelector:@selector(qb_imagePickerControllerDidCancel:)]) {
+        [self.delegate qb_imagePickerControllerDidCancel:self];
+    }
+}
+
+#pragma mark - QBAssetsViewControllerDelegate
+
+- (void)qb_assetsViewControllerDidFinish:(QBAssetsViewController *)assetsViewController
+{
+    if ([self.delegate respondsToSelector:@selector(qb_imagePickerController:didFinishPickingAssets:)]) {
+        [self.delegate qb_imagePickerController:self didFinishPickingAssets:self.assetSelection.assets.array];
+    }
 }
 
 @end

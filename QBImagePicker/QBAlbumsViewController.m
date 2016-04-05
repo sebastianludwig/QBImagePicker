@@ -12,24 +12,8 @@
 #import "QBAlbumCell.h"
 
 // ViewControllers
-#import "QBImagePickerController.h"
 #import "QBAssetsViewController.h"
 
-
-@protocol QBAssetCollectionsControllerDelegate <NSObject>
-
-- (void)qb_assetCollectionsDidChange;
-
-@end
-
-@interface QBAssetCollectionsController : NSObject
-
-@property (nonatomic, weak) id<QBAssetCollectionsControllerDelegate> delegate;
-
-@property (nonatomic, copy) NSArray *enabledAssetCollectionSubtypes;    // TODO: setter should trigger updateAssetCollections
-@property (nonatomic, copy) NSArray *assetCollections;
-
-@end
 
 @interface QBAssetCollectionsController () <PHPhotoLibraryChangeObserver>
 
@@ -63,18 +47,22 @@
     return self;
 }
 
-
 - (void)dealloc
 {
     [[PHPhotoLibrary sharedPhotoLibrary] unregisterChangeObserver:self];
+}
+
+- (void)setEnabledAssetCollectionSubtypes:(NSArray *)enabledAssetCollectionSubtypes
+{
+    _enabledAssetCollectionSubtypes = enabledAssetCollectionSubtypes;
+    
+    [self updateAssetCollections];
 }
 
 #pragma mark private
 
 - (void)updateAssetCollections
 {
-    // TODO: previously this used self.imagePickerController.assetCollectionSubtypes - now changes to the imagePickerController subtypes won't be honored anymore
-    
     // Filter albums
     NSMutableDictionary *smartAlbums = [NSMutableDictionary dictionaryWithCapacity:self.enabledAssetCollectionSubtypes.count];
     NSMutableArray *userAlbums = [NSMutableArray array];
@@ -111,6 +99,7 @@
     }];
     
     self.assetCollections = assetCollections;
+    [self.delegate qb_assetCollectionsDidChange];
 }
 
 #pragma mark - PHPhotoLibraryChangeObserver
@@ -134,7 +123,6 @@
             
             // Reload albums
             [self updateAssetCollections];
-            [self.delegate qb_assetCollectionsDidChange];
         }
     });
 }
@@ -150,7 +138,6 @@
 
 @property (nonatomic, strong) IBOutlet UIBarButtonItem *doneButton;
 @property (nonatomic, strong) UIBarButtonItem *infoToolbarItem;
-@property (nonatomic, strong) QBAssetCollectionsController* collectionsController;
 
 @end
 
@@ -158,25 +145,52 @@
 
 - (instancetype)initWithCoder:(NSCoder *)aDecoder
 {
-    self = [super initWithCoder:aDecoder];
-    if (self) {
-        self.assetBundle = [NSBundle bundleForClass:[self class]];
-        NSString *bundlePath = [self.assetBundle pathForResource:@"QBImagePicker" ofType:@"bundle"];
-        if (bundlePath) {
-            self.assetBundle = [NSBundle bundleWithPath:bundlePath];
-        }
+    if (self = [super initWithCoder:aDecoder]) {
+        [self setup];
     }
     return self;
+}
+
+- (instancetype)init
+{
+    if (self = [super initWithStyle:UITableViewStylePlain]) {
+        [self setup];
+        
+        self.doneButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(done)];
+        self.navigationItem.rightBarButtonItem = self.doneButton;
+        self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemCancel target:self action:@selector(cancel)];
+    }
+    return self;
+}
+
+- (void)setup
+{
+    _assetBundle = [NSBundle bundleForClass:[self class]];
+    NSString *bundlePath = [_assetBundle pathForResource:@"QBImagePicker" ofType:@"bundle"];
+    if (bundlePath) {
+        _assetBundle = [NSBundle bundleWithPath:bundlePath];
+    }
+    _assetSelection = [QBAssetSelection new];
+    _mediaType = QBImagePickerMediaTypeAny;
+    
+    NSArray *assetCollectionSubtypes = @[
+                                         @(PHAssetCollectionSubtypeSmartAlbumUserLibrary),
+                                         @(PHAssetCollectionSubtypeAlbumMyPhotoStream),
+                                         @(PHAssetCollectionSubtypeSmartAlbumPanoramas),
+                                         @(PHAssetCollectionSubtypeSmartAlbumVideos),
+                                         @(PHAssetCollectionSubtypeSmartAlbumBursts)
+                                         ];
+    _collectionsController = [[QBAssetCollectionsController alloc] initWithAssetCollectionSubtypes:assetCollectionSubtypes];
+    _collectionsController.delegate = self;
+    
+    [self setUpToolbarItems];
 }
 
 - (void)viewDidLoad
 {
     [super viewDidLoad];
     
-    [self setUpToolbarItems];
-    
-    self.collectionsController = [[QBAssetCollectionsController alloc] initWithAssetCollectionSubtypes:self.imagePickerController.assetCollectionSubtypes];
-    self.collectionsController.delegate = self;
+    self.tableView.rowHeight = 86;
     
     UINib *nib = [UINib nibWithNibName:@"QBAlbumCell" bundle:self.assetBundle];
     [self.tableView registerNib:nib forCellReuseIdentifier:@"QBAlbumCell"];
@@ -187,33 +201,31 @@
     [super viewWillAppear:animated];
     
     // Show/hide 'Done' button
-    if (self.imagePickerController.allowsMultipleSelection) {
-        BOOL isMinimumSelectionLimitFulfilled = self.imagePickerController.minimumNumberOfSelection <= self.imagePickerController.selectedAssets.count;
-        self.doneButton.enabled = isMinimumSelectionLimitFulfilled;
-        [self.navigationItem setRightBarButtonItem:self.doneButton animated:NO];
-    } else {
-        [self.navigationItem setRightBarButtonItem:nil animated:NO];
-    }
+    self.doneButton.enabled = [self.assetSelection isMinimumSelectionLimitFulfilled];
+    self.navigationItem.rightBarButtonItem = self.assetSelection.allowsMultipleSelection ? self.doneButton : nil;
     
     [self updateSelectionInfo];
+}
+
+- (void)setMediaType:(QBImagePickerMediaType)mediaType
+{
+    _mediaType = mediaType;
+    if (self.isViewLoaded) {
+        [self.tableView reloadData];
+    }
 }
 
 
 #pragma mark - Actions
 
-- (IBAction)cancel:(id)sender
+- (IBAction)cancel
 {
-    if ([self.imagePickerController.delegate respondsToSelector:@selector(qb_imagePickerControllerDidCancel:)]) {
-        [self.imagePickerController.delegate qb_imagePickerControllerDidCancel:self.imagePickerController];
-    }
+    [self.delegate qb_albumsViewControllerDidCancel:self];
 }
 
-- (IBAction)done:(id)sender
+- (IBAction)done
 {
-    if ([self.imagePickerController.delegate respondsToSelector:@selector(qb_imagePickerController:didFinishPickingAssets:)]) {
-        [self.imagePickerController.delegate qb_imagePickerController:self.imagePickerController
-                                               didFinishPickingAssets:self.imagePickerController.selectedAssets.array];
-    }
+    [self.delegate qb_albumsViewControllerDidFinish:self];
 }
 
 
@@ -237,7 +249,7 @@
 
 - (void)updateSelectionInfo
 {
-    NSUInteger count = self.imagePickerController.selectedAssets.count;
+    NSUInteger count = self.assetSelection.count;
     
     if (count > 0) {
         NSString *identifier = count == 1 ? @"assets.toolbar.item-selected" : @"assets.toolbar.items-selected";
@@ -261,7 +273,7 @@
     QBAlbumCell *cell = [tableView dequeueReusableCellWithIdentifier:@"QBAlbumCell" forIndexPath:indexPath];
     
     PHAssetCollection *assetCollection = self.collectionsController.assetCollections[indexPath.row];
-    [cell prepareForAssetCollection:assetCollection mediaType:self.imagePickerController.mediaType atIndexPath:indexPath];
+    [cell prepareForAssetCollection:assetCollection mediaType:self.mediaType atIndexPath:indexPath];
     
     return cell;
 }
@@ -276,6 +288,10 @@
 
 - (void)qb_assetCollectionsDidChange
 {
+    if (!self.isViewLoaded) {
+        return;
+    }
+    
     // TODO: preserve selection
     [self.tableView reloadData];
 }

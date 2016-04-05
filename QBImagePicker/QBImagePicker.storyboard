@@ -1,43 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="9532" systemVersion="14F1509" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="10116" systemVersion="15E65" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES">
     <dependencies>
         <deployment identifier="iOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="9530"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="10085"/>
     </dependencies>
     <scenes>
-        <!--Photos-->
-        <scene sceneID="swb-gz-Gt9">
-            <objects>
-                <tableViewController storyboardIdentifier="QBAlbumsViewController" id="QL5-wR-LYt" customClass="QBAlbumsViewController" sceneMemberID="viewController">
-                    <tableView key="view" clipsSubviews="YES" contentMode="scaleToFill" alwaysBounceVertical="YES" dataMode="prototypes" style="plain" separatorStyle="none" rowHeight="86" sectionHeaderHeight="22" sectionFooterHeight="22" id="66K-TS-Yoc">
-                        <rect key="frame" x="0.0" y="0.0" width="600" height="600"/>
-                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                        <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
-                        <connections>
-                            <outlet property="dataSource" destination="QL5-wR-LYt" id="a4w-hM-ZqJ"/>
-                            <outlet property="delegate" destination="QL5-wR-LYt" id="gZH-IY-ikI"/>
-                        </connections>
-                    </tableView>
-                    <navigationItem key="navigationItem" title="Photos" id="r7D-Kp-3yC">
-                        <barButtonItem key="leftBarButtonItem" systemItem="cancel" id="s1M-VA-CeM">
-                            <connections>
-                                <action selector="cancel:" destination="QL5-wR-LYt" id="l9K-7e-2qt"/>
-                            </connections>
-                        </barButtonItem>
-                        <barButtonItem key="rightBarButtonItem" systemItem="done" id="laG-jk-Ma2">
-                            <connections>
-                                <action selector="done:" destination="QL5-wR-LYt" id="Try-7j-DzS"/>
-                            </connections>
-                        </barButtonItem>
-                    </navigationItem>
-                    <connections>
-                        <outlet property="doneButton" destination="laG-jk-Ma2" id="CV6-AR-B90"/>
-                    </connections>
-                </tableViewController>
-                <placeholder placeholderIdentifier="IBFirstResponder" id="Qu9-YY-dvn" userLabel="First Responder" sceneMemberID="firstResponder"/>
-            </objects>
-            <point key="canvasLocation" x="986" y="851"/>
-        </scene>
         <!--Album Title-->
         <scene sceneID="ozY-oO-5JA">
             <objects>
@@ -160,7 +127,7 @@
                                 <label opaque="NO" userInteractionEnabled="NO" tag="1" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Number of Photos and Videos" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="m2s-7T-bnL">
                                     <rect key="frame" x="0.0" y="22" width="600" height="21"/>
                                     <fontDescription key="fontDescription" type="system" pointSize="17"/>
-                                    <color key="textColor" cocoaTouchSystemColor="darkTextColor"/>
+                                    <color key="textColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="calibratedRGB"/>
                                     <nil key="highlightedColor"/>
                                 </label>
                             </subviews>
@@ -189,26 +156,6 @@
                 <placeholder placeholderIdentifier="IBFirstResponder" id="qBb-2Q-SxP" userLabel="First Responder" sceneMemberID="firstResponder"/>
             </objects>
             <point key="canvasLocation" x="1814" y="852"/>
-        </scene>
-        <!--Navigation Controller-->
-        <scene sceneID="TBV-v4-1AQ">
-            <objects>
-                <navigationController storyboardIdentifier="QBAlbumsNavigationController" id="8Dq-FL-Kai" sceneMemberID="viewController">
-                    <toolbarItems/>
-                    <navigationBar key="navigationBar" contentMode="scaleToFill" id="Whc-Ry-EBq">
-                        <rect key="frame" x="0.0" y="0.0" width="320" height="44"/>
-                        <autoresizingMask key="autoresizingMask"/>
-                    </navigationBar>
-                    <toolbar key="toolbar" opaque="NO" clearsContextBeforeDrawing="NO" contentMode="scaleToFill" id="pNX-sT-Qig">
-                        <autoresizingMask key="autoresizingMask"/>
-                    </toolbar>
-                    <connections>
-                        <segue destination="QL5-wR-LYt" kind="relationship" relationship="rootViewController" id="fhp-Wj-h79"/>
-                    </connections>
-                </navigationController>
-                <placeholder placeholderIdentifier="IBFirstResponder" id="Ag3-Vu-ohc" userLabel="First Responder" sceneMemberID="firstResponder"/>
-            </objects>
-            <point key="canvasLocation" x="166" y="852"/>
         </scene>
     </scenes>
 </document>
