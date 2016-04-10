@@ -8,10 +8,9 @@
 
 #import "QBImagePickerController.h"
 #import <Photos/Photos.h>
-
-// ViewControllers
 #import "QBAlbumsViewController.h"
 #import "QBAssetsViewController.h"
+#import "QBBundle.h"
 
 @interface QBImagePickerController () <QBAlbumsViewControllerDelegate, QBAssetsViewControllerDelegate>
 
@@ -36,11 +35,7 @@
         _assetSelection = [QBAssetSelection new];
         
         // Get asset bundle
-        _assetBundle = [NSBundle bundleForClass:[self class]];
-        NSString *bundlePath = [_assetBundle pathForResource:@"QBImagePicker" ofType:@"bundle"];
-        if (bundlePath) {
-            _assetBundle = [NSBundle bundleWithPath:bundlePath];
-        }
+        _assetBundle = [QBBundle imagePickerBundle];
         
         [self addAlbumsViewController];
     }

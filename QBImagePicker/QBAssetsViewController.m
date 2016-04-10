@@ -7,6 +7,7 @@
 //
 
 #import "QBAssetsViewController.h"
+#import "QBBundle.h"
 
 // Views
 #import "QBAssetCell.h"
@@ -69,11 +70,7 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
 {
     self = [super initWithCoder:aDecoder];
     if (self) {
-        _assetBundle = [NSBundle bundleForClass:[self class]];      // TODO: dry this up - static helper?
-        NSString *bundlePath = [_assetBundle pathForResource:@"QBImagePicker" ofType:@"bundle"];
-        if (bundlePath) {
-            _assetBundle = [NSBundle bundleWithPath:bundlePath];
-        }
+        _assetBundle = [QBBundle imagePickerBundle];
         _assetSelection = [QBAssetSelection new];
     }
     return self;

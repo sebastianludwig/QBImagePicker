@@ -7,8 +7,24 @@
 //
 
 #import "QBAlbumsViewController.h"
+#import "QBBundle.h"
 #import "QBAssetsViewController.h"
 #import "QBAlbumCell.h"
+
+
+@interface QBAlbumsTableView : UITableView
+
+@end
+
+
+
+@implementation QBAlbumsTableView
+
+
+
+@end
+
+
 
 
 
@@ -45,11 +61,6 @@
 
 - (void)setup
 {
-    _assetBundle = [NSBundle bundleForClass:[self class]];
-    NSString *bundlePath = [_assetBundle pathForResource:@"QBImagePicker" ofType:@"bundle"];
-    if (bundlePath) {
-        _assetBundle = [NSBundle bundleWithPath:bundlePath];
-    }
     _assetSelection = [QBAssetSelection new];
     
     NSArray *assetCollectionSubtypes = @[
@@ -64,6 +75,7 @@
     _collectionsController.delegate = self;
     
     [self setUpToolbarItems];
+    _assetBundle = [QBBundle imagePickerBundle];
 }
 
 - (void)viewDidLoad
