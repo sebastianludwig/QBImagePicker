@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="9532" systemVersion="14F1509" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="10116" systemVersion="15E65" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES">
     <dependencies>
         <deployment identifier="iOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="9530"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="10085"/>
         <capability name="Constraints to layout margins" minToolsVersion="6.0"/>
     </dependencies>
     <objects>
@@ -18,21 +18,21 @@
                     <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="J9D-TF-wFX">
                         <rect key="frame" x="16" y="7" width="68" height="72"/>
                         <subviews>
-                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="Zja-ci-c3w">
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="Zja-ci-c3w" userLabel="Back Image View">
                                 <rect key="frame" x="4" y="0.0" width="60" height="60"/>
                                 <constraints>
                                     <constraint firstAttribute="width" constant="60" id="0pS-zn-i9A"/>
                                     <constraint firstAttribute="height" constant="60" id="H27-XE-WLe"/>
                                 </constraints>
                             </imageView>
-                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="MO5-Ij-giH">
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="MO5-Ij-giH" userLabel="Middle Image View">
                                 <rect key="frame" x="2" y="2" width="64" height="64"/>
                                 <constraints>
                                     <constraint firstAttribute="width" constant="64" id="jeC-z9-aNS"/>
                                     <constraint firstAttribute="height" constant="64" id="zIj-Cr-0lb"/>
                                 </constraints>
                             </imageView>
-                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="ckc-tx-5Ht">
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="ckc-tx-5Ht" userLabel="Front Image View">
                                 <rect key="frame" x="0.0" y="4" width="68" height="68"/>
                                 <constraints>
                                     <constraint firstAttribute="height" constant="68" id="mv2-gq-9K0"/>
@@ -77,10 +77,10 @@
                 </constraints>
             </tableViewCellContentView>
             <connections>
+                <outlet property="backImageView" destination="Zja-ci-c3w" id="xP1-GK-iFX"/>
                 <outlet property="countLabel" destination="IRz-dY-8aU" id="cc1-wh-SAt"/>
-                <outlet property="imageView1" destination="ckc-tx-5Ht" id="Lq6-2j-hUd"/>
-                <outlet property="imageView2" destination="MO5-Ij-giH" id="8c3-BO-1ni"/>
-                <outlet property="imageView3" destination="Zja-ci-c3w" id="zPo-WU-ASb"/>
+                <outlet property="frontImageView" destination="ckc-tx-5Ht" id="4Rk-M8-3rD"/>
+                <outlet property="middleImageView" destination="MO5-Ij-giH" id="SO6-32-ZNM"/>
                 <outlet property="titleLabel" destination="b3q-mb-6qP" id="5IT-7L-pVd"/>
             </connections>
             <point key="canvasLocation" x="295" y="-352"/>

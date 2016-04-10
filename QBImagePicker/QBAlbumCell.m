@@ -86,31 +86,31 @@ static CGSize CGSizeScreenScale(CGSize size) {
 
 - (void)awakeFromNib
 {
-    self.imageView1.layer.borderWidth = self.imageViewBorderWidth;
-    self.imageView2.layer.borderWidth = self.imageViewBorderWidth;
-    self.imageView3.layer.borderWidth = self.imageViewBorderWidth;
+    self.frontImageView.layer.borderWidth = self.imageViewBorderWidth;
+    self.middleImageView.layer.borderWidth = self.imageViewBorderWidth;
+    self.backImageView.layer.borderWidth = self.imageViewBorderWidth;
     
-    self.imageView1.layer.borderColor = [self.imageViewBorderColor CGColor];
-    self.imageView2.layer.borderColor = [self.imageViewBorderColor CGColor];
-    self.imageView3.layer.borderColor = [self.imageViewBorderColor CGColor];
+    self.frontImageView.layer.borderColor = [self.imageViewBorderColor CGColor];
+    self.middleImageView.layer.borderColor = [self.imageViewBorderColor CGColor];
+    self.backImageView.layer.borderColor = [self.imageViewBorderColor CGColor];
 }
 
 - (void)setImageViewBorderWidth:(CGFloat)width
 {
     _imageViewBorderWidth = width;
     
-    self.imageView1.layer.borderWidth = width;
-    self.imageView2.layer.borderWidth = width;
-    self.imageView3.layer.borderWidth = width;
+    self.frontImageView.layer.borderWidth = width;
+    self.middleImageView.layer.borderWidth = width;
+    self.backImageView.layer.borderWidth = width;
 }
 
 - (void)setImageViewBorderColor:(UIColor *)color
 {
     _imageViewBorderColor = color;
     
-    self.imageView1.layer.borderColor = [color CGColor];
-    self.imageView2.layer.borderColor = [color CGColor];
-    self.imageView3.layer.borderColor = [color CGColor];
+    self.frontImageView.layer.borderColor = [color CGColor];
+    self.middleImageView.layer.borderColor = [color CGColor];
+    self.backImageView.layer.borderColor = [color CGColor];
 }
 
 - (void)updateImageView:(UIImageView *)imageView withAsset:(PHAsset *)asset indexPath:(NSIndexPath *)indexPath
@@ -141,33 +141,26 @@ static CGSize CGSizeScreenScale(CGSize size) {
     if (assetCollection.assetFetchResult) {
         PHFetchResult *fetchResult = assetCollection.assetFetchResult;
         
+        self.backImageView.hidden = fetchResult.count < 3 && fetchResult.count != 0;
+        self.middleImageView.hidden = fetchResult.count < 2 && fetchResult.count != 0;
+        
         if (fetchResult.count >= 3) {
-            self.imageView3.hidden = NO;
-            [self updateImageView:self.imageView3 withAsset:fetchResult[fetchResult.count - 3] indexPath:indexPath];
-        } else {
-            self.imageView3.hidden = YES;
+            [self updateImageView:self.backImageView withAsset:fetchResult[fetchResult.count - 3] indexPath:indexPath];
         }
         
         if (fetchResult.count >= 2) {
-            self.imageView2.hidden = NO;
-            [self updateImageView:self.imageView2 withAsset:fetchResult[fetchResult.count - 2] indexPath:indexPath];
-        } else {
-            self.imageView2.hidden = YES;
+            [self updateImageView:self.middleImageView withAsset:fetchResult[fetchResult.count - 2] indexPath:indexPath];
         }
         
         if (fetchResult.count >= 1) {
-            [self updateImageView:self.imageView1 withAsset:fetchResult[fetchResult.count - 1] indexPath:indexPath];
+            [self updateImageView:self.frontImageView withAsset:fetchResult[fetchResult.count - 1] indexPath:indexPath];
         }
         
         if (fetchResult.count == 0) {
-            self.imageView3.hidden = NO;
-            self.imageView2.hidden = NO;
-            
-            // Set placeholder image
-            UIImage *placeholderImage = [self.class placeholderImageWithSize:self.imageView1.frame.size];
-            self.imageView1.image = placeholderImage;
-            self.imageView2.image = placeholderImage;
-            self.imageView3.image = placeholderImage;
+            UIImage *placeholderImage = [self.class placeholderImageWithSize:self.frontImageView.frame.size];
+            self.frontImageView.image = placeholderImage;
+            self.middleImageView.image = placeholderImage;
+            self.backImageView.image = placeholderImage;
         }
     }
 }

@@ -13,9 +13,9 @@
 
 @interface QBAlbumCell : UITableViewCell
 
-@property (weak, nonatomic) IBOutlet UIImageView *imageView1;       // TODO: rename to front, middle and back
-@property (weak, nonatomic) IBOutlet UIImageView *imageView2;
-@property (weak, nonatomic) IBOutlet UIImageView *imageView3;
+@property (weak, nonatomic) IBOutlet UIImageView *frontImageView;
+@property (weak, nonatomic) IBOutlet UIImageView *middleImageView;
+@property (weak, nonatomic) IBOutlet UIImageView *backImageView;
 @property (weak, nonatomic) IBOutlet UILabel *titleLabel;
 @property (weak, nonatomic) IBOutlet UILabel *countLabel;
 
