@@ -48,7 +48,7 @@
     self.albumsViewController = [[QBAlbumsViewController alloc] init];
     self.albumsViewController.delegate = self;
     self.albumsViewController.assetSelection = self.assetSelection;
-    self.albumsViewController.mediaType = self.mediaType;
+    self.albumsViewController.tableView.mediaType = self.mediaType;
     self.albumsViewController.navigationItem.title = NSLocalizedStringFromTableInBundle(@"albums.title", @"QBImagePicker", _assetBundle, nil);
     
     self.albumsNavigationController = [[UINavigationController alloc] initWithRootViewController:self.albumsViewController];
@@ -104,17 +104,17 @@
 
 - (NSArray *)assetCollectionSubtypes
 {
-    return self.albumsViewController.collectionsController.enabledAssetCollectionSubtypes;
+    return self.albumsViewController.tableView.collectionsController.enabledAssetCollectionSubtypes;
 }
 
 - (void)setAssetCollectionSubtypes:(NSArray *)assetCollectionSubtypes
 {
-    self.albumsViewController.collectionsController.enabledAssetCollectionSubtypes = assetCollectionSubtypes;
+    self.albumsViewController.tableView.collectionsController.enabledAssetCollectionSubtypes = assetCollectionSubtypes;
 }
 
 #pragma mark - QBAlbumsViewControllerDelegate
 
-- (void)qb_albumsViewController:(QBAlbumsViewController *)albumsViewController didSelectAssetCollection:(PHAssetCollection *)assetCollection
+- (void)qb_albumsViewController:(QBAlbumsViewController *)albumsViewController didSelectAssetCollection:(QBAssetCollection *)assetCollection
 {
     UIStoryboard *storyboard = [UIStoryboard storyboardWithName:@"QBImagePicker" bundle:self.assetBundle];
     QBAssetsViewController *assetsViewController = [storyboard instantiateViewControllerWithIdentifier:@"QBAssetsViewController"];
@@ -127,7 +127,7 @@
     assetsViewController.assetSelection = self.assetSelection;
     assetsViewController.mediaType = self.mediaType;
     
-    assetsViewController.assetCollection = assetCollection;
+    assetsViewController.assetCollection = assetCollection.collection;
     
     [self.albumsNavigationController pushViewController:assetsViewController animated:YES];
 }

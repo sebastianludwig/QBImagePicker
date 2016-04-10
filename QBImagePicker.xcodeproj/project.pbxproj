@@ -21,6 +21,8 @@
 		9EAA23021CBA3CCD0010B5BA /* QBAssetCollectionsController.m in Sources */ = {isa = PBXBuildFile; fileRef = 9EAA23001CBA3CCD0010B5BA /* QBAssetCollectionsController.m */; };
 		9EAA23051CBA40E80010B5BA /* QBBundle.h in Headers */ = {isa = PBXBuildFile; fileRef = 9EAA23031CBA40E80010B5BA /* QBBundle.h */; };
 		9EAA23061CBA40E80010B5BA /* QBBundle.m in Sources */ = {isa = PBXBuildFile; fileRef = 9EAA23041CBA40E80010B5BA /* QBBundle.m */; };
+		9EAA23091CBA4DEC0010B5BA /* QBAlbumsTableView.h in Headers */ = {isa = PBXBuildFile; fileRef = 9EAA23071CBA4DEC0010B5BA /* QBAlbumsTableView.h */; };
+		9EAA230A1CBA4DEC0010B5BA /* QBAlbumsTableView.m in Sources */ = {isa = PBXBuildFile; fileRef = 9EAA23081CBA4DEC0010B5BA /* QBAlbumsTableView.m */; };
 		AA3AD06F1ACF9A3A00BF523E /* QBVideoIconView.h in Headers */ = {isa = PBXBuildFile; fileRef = AA3AD06D1ACF9A3A00BF523E /* QBVideoIconView.h */; };
 		AA3AD0701ACF9A3A00BF523E /* QBVideoIconView.m in Sources */ = {isa = PBXBuildFile; fileRef = AA3AD06E1ACF9A3A00BF523E /* QBVideoIconView.m */; };
 		AA3AD0731ACFA06700BF523E /* QBVideoIndicatorView.h in Headers */ = {isa = PBXBuildFile; fileRef = AA3AD0711ACFA06700BF523E /* QBVideoIndicatorView.h */; };
@@ -108,6 +110,8 @@
 		9EAA23001CBA3CCD0010B5BA /* QBAssetCollectionsController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = QBAssetCollectionsController.m; sourceTree = "<group>"; };
 		9EAA23031CBA40E80010B5BA /* QBBundle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = QBBundle.h; sourceTree = "<group>"; };
 		9EAA23041CBA40E80010B5BA /* QBBundle.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = QBBundle.m; sourceTree = "<group>"; };
+		9EAA23071CBA4DEC0010B5BA /* QBAlbumsTableView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = QBAlbumsTableView.h; sourceTree = "<group>"; };
+		9EAA23081CBA4DEC0010B5BA /* QBAlbumsTableView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = QBAlbumsTableView.m; sourceTree = "<group>"; };
 		AA3AD06D1ACF9A3A00BF523E /* QBVideoIconView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = QBVideoIconView.h; sourceTree = "<group>"; };
 		AA3AD06E1ACF9A3A00BF523E /* QBVideoIconView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = QBVideoIconView.m; sourceTree = "<group>"; };
 		AA3AD0711ACFA06700BF523E /* QBVideoIndicatorView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = QBVideoIndicatorView.h; sourceTree = "<group>"; };
@@ -189,6 +193,8 @@
 			children = (
 				AAF1CA181ACE5467005F6295 /* QBAlbumCell.h */,
 				AAF1CA191ACE5467005F6295 /* QBAlbumCell.m */,
+				9EAA23071CBA4DEC0010B5BA /* QBAlbumsTableView.h */,
+				9EAA23081CBA4DEC0010B5BA /* QBAlbumsTableView.m */,
 				AAF1CA311ACE6FB5005F6295 /* QBAssetCell.h */,
 				AAF1CA321ACE6FB5005F6295 /* QBAssetCell.m */,
 				AABBF08E1ACEDDFF003188A3 /* QBCheckmarkView.h */,
@@ -357,6 +363,7 @@
 				9EAA22F91CBA3BF20010B5BA /* QBAssetCollection.h in Headers */,
 				9EAA22FD1CBA3C540010B5BA /* QBFetchCollectionAssetsOperation.h in Headers */,
 				AAF1CA331ACE6FB5005F6295 /* QBAssetCell.h in Headers */,
+				9EAA23091CBA4DEC0010B5BA /* QBAlbumsTableView.h in Headers */,
 				9E815BB21CAA262800839192 /* QBImagePickerTypes.h in Headers */,
 				AAF1CA2F1ACE6E46005F6295 /* QBAssetsViewController.h in Headers */,
 				AAF1CA1A1ACE5467005F6295 /* QBAlbumCell.h in Headers */,
@@ -541,6 +548,7 @@
 			files = (
 				AAF1CA341ACE6FB5005F6295 /* QBAssetCell.m in Sources */,
 				AA3AD0701ACF9A3A00BF523E /* QBVideoIconView.m in Sources */,
+				9EAA230A1CBA4DEC0010B5BA /* QBAlbumsTableView.m in Sources */,
 				9EAA23021CBA3CCD0010B5BA /* QBAssetCollectionsController.m in Sources */,
 				790A85101AE7D4D9008E2A80 /* QBSlomoIconView.m in Sources */,
 				AABBF0911ACEDDFF003188A3 /* QBCheckmarkView.m in Sources */,

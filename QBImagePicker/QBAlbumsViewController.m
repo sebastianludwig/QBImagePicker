@@ -8,27 +8,9 @@
 
 #import "QBAlbumsViewController.h"
 #import "QBBundle.h"
-#import "QBAssetsViewController.h"
-#import "QBAlbumCell.h"
 
 
-@interface QBAlbumsTableView : UITableView
-
-@end
-
-
-
-@implementation QBAlbumsTableView
-
-
-
-@end
-
-
-
-
-
-@interface QBAlbumsViewController () <QBAssetCollectionsControllerDelegate>
+@interface QBAlbumsViewController () <QBAlbumsTableViewDelegate>
 
 @property (nonatomic, strong) NSBundle *assetBundle;
 
@@ -38,6 +20,9 @@
 @end
 
 @implementation QBAlbumsViewController
+{
+    QBAlbumsTableView *_tableView;
+}
 
 - (instancetype)initWithCoder:(NSCoder *)aDecoder
 {
@@ -49,7 +34,7 @@
 
 - (instancetype)init
 {
-    if (self = [super initWithStyle:UITableViewStylePlain]) {
+    if (self = [super init]) {
         [self setup];
         
         self.doneButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(done)];
@@ -61,31 +46,19 @@
 
 - (void)setup
 {
-    _assetSelection = [QBAssetSelection new];
-    
-    NSArray *assetCollectionSubtypes = @[
-                                         @(PHAssetCollectionSubtypeSmartAlbumUserLibrary),
-                                         @(PHAssetCollectionSubtypeAlbumMyPhotoStream),
-                                         @(PHAssetCollectionSubtypeSmartAlbumPanoramas),
-                                         @(PHAssetCollectionSubtypeSmartAlbumVideos),
-                                         @(PHAssetCollectionSubtypeSmartAlbumBursts),
-                                         @(PHAssetCollectionSubtypeAlbumRegular)
-                                         ];
-    _collectionsController = [[QBAssetCollectionsController alloc] initWithAssetCollectionSubtypes:assetCollectionSubtypes mediaType:QBImagePickerMediaTypeAny];
-    _collectionsController.delegate = self;
-    
     [self setUpToolbarItems];
+    
     _assetBundle = [QBBundle imagePickerBundle];
+    _assetSelection = [QBAssetSelection new];
 }
 
 - (void)viewDidLoad
 {
     [super viewDidLoad];
     
-    self.tableView.rowHeight = 86;
-    
-    UINib *nib = [UINib nibWithNibName:@"QBAlbumCell" bundle:self.assetBundle];
-    [self.tableView registerNib:nib forCellReuseIdentifier:@"QBAlbumCell"];
+    _tableView = [[QBAlbumsTableView alloc] initWithFrame:self.view.bounds];
+    _tableView.albumsTableViewDelegate = self;
+    [self.view addSubview:_tableView];
 }
 
 - (void)viewWillAppear:(BOOL)animated
@@ -96,19 +69,18 @@
     self.doneButton.enabled = [self.assetSelection isMinimumSelectionLimitFulfilled];
     self.navigationItem.rightBarButtonItem = self.assetSelection.allowsMultipleSelection ? self.doneButton : nil;
     
+    [self.tableView deselectRowAtIndexPath:self.tableView.indexPathForSelectedRow animated:YES];
+    
     [self updateSelectionInfo];
 }
 
-- (QBImagePickerMediaType)mediaType
+- (QBAlbumsTableView *)tableView
 {
-    return self.collectionsController.mediaType;
+    if (!self.isViewLoaded) {
+        [self view];        // trigger view loading
+    }
+    return _tableView;
 }
-
-- (void)setMediaType:(QBImagePickerMediaType)mediaType
-{
-    self.collectionsController.mediaType = mediaType;
-}
-
 
 #pragma mark - Actions
 
@@ -155,50 +127,11 @@
     }
 }
 
-#pragma mark - UITableViewDataSource
+#pragma mark - QBAlbumsTableViewDelegate
 
-- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
+- (void)qb_albumsTableView:(QBAlbumsTableView *)tableView didSelectAssetCollection:(QBAssetCollection *)assetCollection
 {
-    return self.collectionsController.assetCollections.count;
+    [self.delegate qb_albumsViewController:self didSelectAssetCollection:assetCollection];
 }
-
-- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
-{
-    QBAlbumCell *cell = [tableView dequeueReusableCellWithIdentifier:@"QBAlbumCell" forIndexPath:indexPath];
-    
-    QBAssetCollection *assetCollection = self.collectionsController.assetCollections[indexPath.row];
-    [cell prepareForAssetCollection:assetCollection atIndexPath:indexPath];
-    
-    return cell;
-}
-
-- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
-{
-    QBAssetCollection *assetCollection = self.collectionsController.assetCollections[self.tableView.indexPathForSelectedRow.row];
-    [self.delegate qb_albumsViewController:self didSelectAssetCollection:assetCollection.collection];
-}
-
-#pragma mark - QBAssetCollectionsControllerDelegate
-
-- (void)qb_assetCollectionsDidChange
-{
-    if (!self.isViewLoaded) {
-        return;
-    }
-    
-    // TODO: preserve selection
-    [self.tableView reloadData];
-}
-
-- (void)qb_assetCollectionDidChange:(QBAssetCollection *)collection
-{
-    NSUInteger index = [self.collectionsController.assetCollections indexOfObject:collection];
-    if (index == NSNotFound) {
-        NSLog(@"this should never happen oO");
-    }
-    
-    [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:index inSection:0]] withRowAnimation:UITableViewRowAnimationNone];
-}
-
 
 @end
