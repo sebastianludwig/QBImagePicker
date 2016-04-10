@@ -68,6 +68,6 @@
 @property (nonatomic, strong) QBAssetCollectionsController* collectionsController;
 @property (nonatomic, strong) QBAssetSelection *assetSelection; // TODO: setter should update Done button state
 
-@property (nonatomic, assign) QBImagePickerMediaType mediaType;
+@property (nonatomic) QBImagePickerMediaType mediaType;
 
 @end

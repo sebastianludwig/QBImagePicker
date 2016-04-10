@@ -310,7 +310,6 @@
         _assetBundle = [NSBundle bundleWithPath:bundlePath];
     }
     _assetSelection = [QBAssetSelection new];
-    _mediaType = QBImagePickerMediaTypeAny;
     
     NSArray *assetCollectionSubtypes = @[
                                          @(PHAssetCollectionSubtypeSmartAlbumUserLibrary),
@@ -320,7 +319,7 @@
                                          @(PHAssetCollectionSubtypeSmartAlbumBursts),
                                          @(PHAssetCollectionSubtypeAlbumRegular)
                                          ];
-    _collectionsController = [[QBAssetCollectionsController alloc] initWithAssetCollectionSubtypes:assetCollectionSubtypes mediaType:QBImagePickerMediaTypeImage];
+    _collectionsController = [[QBAssetCollectionsController alloc] initWithAssetCollectionSubtypes:assetCollectionSubtypes mediaType:QBImagePickerMediaTypeAny];
     _collectionsController.delegate = self;
     
     [self setUpToolbarItems];
@@ -347,12 +346,14 @@
     [self updateSelectionInfo];
 }
 
+- (QBImagePickerMediaType)mediaType
+{
+    return self.collectionsController.mediaType;
+}
+
 - (void)setMediaType:(QBImagePickerMediaType)mediaType
 {
-    _mediaType = mediaType;
-    if (self.isViewLoaded) {
-        [self.tableView reloadData];
-    }
+    self.collectionsController.mediaType = mediaType;
 }
 
 
