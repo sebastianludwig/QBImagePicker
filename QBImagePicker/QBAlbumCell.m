@@ -129,58 +129,47 @@ static CGSize CGSizeScreenScale(CGSize size) {
                          }];
 }
 
-- (void)prepareForAssetCollection:(PHAssetCollection *)assetCollection mediaType:(QBImagePickerMediaType)mediaType atIndexPath:(NSIndexPath *)indexPath
+- (void)prepareForAssetCollection:(QBAssetCollection *)assetCollection atIndexPath:(NSIndexPath *)indexPath
 {
     self.indexPath = indexPath;
     
-    PHFetchOptions *options = [PHFetchOptions new];
-    
-    if (mediaType == QBImagePickerMediaTypeImage) {
-        options.predicate = [NSPredicate predicateWithFormat:@"mediaType == %ld", PHAssetMediaTypeImage];
-    } else if (mediaType == QBImagePickerMediaTypeVideo) {
-        options.predicate = [NSPredicate predicateWithFormat:@"mediaType == %ld", PHAssetMediaTypeVideo];
-    }
-    
-    // SEB: don't fetch here, it's going to be slow with many iCloud albums
-    // use PHAssetCollection.estimatedAssetCount and PHAsset+fetchKeyAssetsInAssetCollection
-    // later: pre-fetch all assets in the background to supply them to the assets collection view
-    
-    PHFetchResult *fetchResult = [PHAsset fetchAssetsInAssetCollection:assetCollection options:options];
-    
-    if (fetchResult.count >= 3) {
-        self.imageView3.hidden = NO;
-        [self updateImageView:self.imageView3 withAsset:fetchResult[fetchResult.count - 3] indexPath:indexPath];
-    } else {
-        self.imageView3.hidden = YES;
-    }
-    
-    if (fetchResult.count >= 2) {
-        self.imageView2.hidden = NO;
-        [self updateImageView:self.imageView2 withAsset:fetchResult[fetchResult.count - 2] indexPath:indexPath];
-    } else {
-        self.imageView2.hidden = YES;
-    }
-    
-    if (fetchResult.count >= 1) {
-        [self updateImageView:self.imageView1 withAsset:fetchResult[fetchResult.count - 1] indexPath:indexPath];
-    }
-    
-    if (fetchResult.count == 0) {
-        self.imageView3.hidden = NO;
-        self.imageView2.hidden = NO;
-        
-        // Set placeholder image
-        UIImage *placeholderImage = [self.class placeholderImageWithSize:self.imageView1.frame.size];
-        self.imageView1.image = placeholderImage;
-        self.imageView2.image = placeholderImage;
-        self.imageView3.image = placeholderImage;
-    }
-    
-    // Album title
     self.titleLabel.text = assetCollection.localizedTitle;
     
-    // Number of photos
-    self.countLabel.text = [NSString stringWithFormat:@"%lu", (long)fetchResult.count];
+    self.countLabel.text = [NSString stringWithFormat:@"%lu", (long)assetCollection.count];
+    self.countLabel.hidden = !assetCollection.hasCount;
+
+    if (assetCollection.assetFetchResult) {
+        PHFetchResult *fetchResult = assetCollection.assetFetchResult;
+        
+        if (fetchResult.count >= 3) {
+            self.imageView3.hidden = NO;
+            [self updateImageView:self.imageView3 withAsset:fetchResult[fetchResult.count - 3] indexPath:indexPath];
+        } else {
+            self.imageView3.hidden = YES;
+        }
+        
+        if (fetchResult.count >= 2) {
+            self.imageView2.hidden = NO;
+            [self updateImageView:self.imageView2 withAsset:fetchResult[fetchResult.count - 2] indexPath:indexPath];
+        } else {
+            self.imageView2.hidden = YES;
+        }
+        
+        if (fetchResult.count >= 1) {
+            [self updateImageView:self.imageView1 withAsset:fetchResult[fetchResult.count - 1] indexPath:indexPath];
+        }
+        
+        if (fetchResult.count == 0) {
+            self.imageView3.hidden = NO;
+            self.imageView2.hidden = NO;
+            
+            // Set placeholder image
+            UIImage *placeholderImage = [self.class placeholderImageWithSize:self.imageView1.frame.size];
+            self.imageView1.image = placeholderImage;
+            self.imageView2.image = placeholderImage;
+            self.imageView3.image = placeholderImage;
+        }
+    }
 }
 
 @end

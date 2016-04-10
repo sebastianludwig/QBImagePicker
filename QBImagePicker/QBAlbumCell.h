@@ -9,10 +9,11 @@
 #import <UIKit/UIKit.h>
 #import <Photos/Photos.h>
 #import "QBImagePickerTypes.h"
+#import "QBAlbumsViewController.h"  // TODO: change this
 
 @interface QBAlbumCell : UITableViewCell
 
-@property (weak, nonatomic) IBOutlet UIImageView *imageView1;       // TODO: use outlet collection
+@property (weak, nonatomic) IBOutlet UIImageView *imageView1;       // TODO: rename to front, middle and back
 @property (weak, nonatomic) IBOutlet UIImageView *imageView2;
 @property (weak, nonatomic) IBOutlet UIImageView *imageView3;
 @property (weak, nonatomic) IBOutlet UILabel *titleLabel;
@@ -21,6 +22,6 @@
 @property (nonatomic, assign) CGFloat imageViewBorderWidth;     // TODO: make inspectable
 @property (nonatomic, assign) UIColor *imageViewBorderColor;
 
-- (void)prepareForAssetCollection:(PHAssetCollection *)assetCollection mediaType:(QBImagePickerMediaType)mediaType atIndexPath:(NSIndexPath *)indexPath;
+- (void)prepareForAssetCollection:(QBAssetCollection *)assetCollection atIndexPath:(NSIndexPath *)indexPath;
 
 @end

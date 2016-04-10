@@ -12,11 +12,26 @@
 #import "QBImagePickerTypes.h"
 
 
+@interface QBAssetCollection : NSObject
+
+@property (nonatomic, readonly) PHAssetCollection *collection;
+@property (nonatomic, strong, readonly) NSString *localizedTitle;
+@property (nonatomic, readonly) NSUInteger count;
+@property (nonatomic, readonly) BOOL hasCount;
+@property (nonatomic, readonly) PHFetchResult *assetFetchResult;
+
+- (instancetype)initWithAssetCollection:(PHAssetCollection *)collection;
+
+@end
+
 
 
 @protocol QBAssetCollectionsControllerDelegate <NSObject>
 
 - (void)qb_assetCollectionsDidChange;
+
+@optional
+- (void)qb_assetCollectionDidChange:(QBAssetCollection *)collection;
 
 @end
 
@@ -24,8 +39,12 @@
 
 @property (nonatomic, weak) id<QBAssetCollectionsControllerDelegate> delegate;
 
-@property (nonatomic, copy) NSArray *enabledAssetCollectionSubtypes;    // TODO: setter should trigger updateAssetCollections
-@property (nonatomic, copy) NSArray *assetCollections;
+@property (nonatomic) QBImagePickerMediaType mediaType;
+@property (nonatomic, copy) NSArray *enabledAssetCollectionSubtypes;
+@property (nonatomic, copy, readonly) NSArray<QBAssetCollection *> *assetCollections;
+@property (nonatomic, copy, readonly) NSDictionary<NSNumber *, NSArray<QBAssetCollection *> *> *assetCollectionsByType;
+
+- (instancetype)initWithAssetCollectionSubtypes:(NSArray *)assetCollectionSubtypes mediaType:(QBImagePickerMediaType)mediaType;
 
 @end
 

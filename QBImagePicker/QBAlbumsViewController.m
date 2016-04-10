@@ -14,25 +14,124 @@
 // ViewControllers
 #import "QBAssetsViewController.h"
 
+@implementation QBAssetCollection
+
+- (instancetype)initWithAssetCollection:(PHAssetCollection *)collection
+{
+    if (self = [super init]) {
+        _collection = collection;
+    }
+    return self;
+}
+
+- (NSString *)localizedTitle
+{
+    return self.collection.localizedTitle;
+}
+
+- (BOOL)hasCount
+{
+    return self.assetFetchResult || self.collection.estimatedAssetCount != NSNotFound;    // not sure if NSNotFound is appropriate here - it's the same value, but not documented
+}
+
+- (NSUInteger)count
+{
+    if (!self.hasCount) {
+        return 0;
+    }
+    return self.assetFetchResult ? self.assetFetchResult.count : self.collection.estimatedAssetCount;
+}
+
+- (void)setAssetFetchResult:(PHFetchResult *)assetFetchResult
+{
+    _assetFetchResult = assetFetchResult;
+}
+
+@end
+
+
+@interface QBAssetCollection (Private)
+
+@property (nonatomic) PHFetchResult *assetFetchResult;
+
+@end
+
+
+@interface QBFetchCollectionAssetsOperation : NSOperation
+
+@property (nonatomic, readonly) PHAssetCollection *assetCollection;
+@property (nonatomic, readonly) QBImagePickerMediaType mediaType;
+@property (nonatomic, readonly) PHFetchResult *fetchResult;
+
+- (instancetype)initWithCollection:(PHAssetCollection *)collection mediaType:(QBImagePickerMediaType)mediaType completionBlock:(void (^)(QBFetchCollectionAssetsOperation *operation))completionBlock;
+
+@end
+
+@implementation QBFetchCollectionAssetsOperation
+{
+    void (^_completionBlock)(QBFetchCollectionAssetsOperation *operation);
+}
+
+- (instancetype)initWithCollection:(PHAssetCollection *)collection mediaType:(QBImagePickerMediaType)mediaType completionBlock:(void (^)(QBFetchCollectionAssetsOperation *operation))completionBlock
+{
+    if (self = [super init]) {
+        _assetCollection = collection;
+        _mediaType = mediaType;
+        _completionBlock = completionBlock;
+    }
+    return self;
+}
+
+- (void)main
+{
+    if (self.isCancelled) {
+        return;
+    }
+    
+    PHFetchOptions *options = [PHFetchOptions new];
+    if (self.mediaType == QBImagePickerMediaTypeImage) {
+        options.predicate = [NSPredicate predicateWithFormat:@"mediaType == %ld", PHAssetMediaTypeImage];
+    } else if (self.mediaType == QBImagePickerMediaTypeVideo) {
+        options.predicate = [NSPredicate predicateWithFormat:@"mediaType == %ld", PHAssetMediaTypeVideo];
+    }
+    
+    _fetchResult = [PHAsset fetchAssetsInAssetCollection:self.assetCollection options:options];
+ 
+    dispatch_async(dispatch_get_main_queue(), ^(void) {
+        _completionBlock(self); // no need for weak reference, since this does not introduce a retain cycle
+    });
+}
+
+@end
+
+
 
 @interface QBAssetCollectionsController () <PHPhotoLibraryChangeObserver>
 
-@property (nonatomic, copy) NSArray *fetchResults;
+@property (nonatomic, copy) NSArray *fetchAssetCollectionsResults;
+@property (nonatomic) NSOperationQueue *operationQueue;
+@property (nonatomic) BOOL updateAssetCollectionsInProgress;
 
 @end
 
 @implementation QBAssetCollectionsController
+{
+    BOOL _updateAssetCollectionsInProgress;
+}
 
-- (instancetype)initWithAssetCollectionSubtypes:(NSArray *)assetCollectionSubtypes
+- (instancetype)initWithAssetCollectionSubtypes:(NSArray *)assetCollectionSubtypes mediaType:(QBImagePickerMediaType)mediaType
 {
     if (self = [super init]) {
-        self.enabledAssetCollectionSubtypes = assetCollectionSubtypes;
+        _operationQueue = [[NSOperationQueue alloc] init];
+        _operationQueue.qualityOfService = NSOperationQualityOfServiceUserInitiated;
+        _enabledAssetCollectionSubtypes = assetCollectionSubtypes;
+        _mediaType = mediaType;
         
         // TODO: ensure this does not block
         // Fetch user albums and smart albums
         PHFetchResult *smartAlbums = [PHAssetCollection fetchAssetCollectionsWithType:PHAssetCollectionTypeSmartAlbum subtype:PHAssetCollectionSubtypeAny options:nil];
         PHFetchResult *userAlbums = [PHAssetCollection fetchAssetCollectionsWithType:PHAssetCollectionTypeAlbum subtype:PHAssetCollectionSubtypeAny options:nil];
-        self.fetchResults = @[smartAlbums, userAlbums];
+        _fetchAssetCollectionsResults = @[smartAlbums, userAlbums];
         
         // SEB: maybe use
         // PHFetchResult *topLevelUserCollections = [PHCollectionList fetchTopLevelUserCollectionsWithOptions:nil];
@@ -59,47 +158,87 @@
     [self updateAssetCollections];
 }
 
+- (void)setMediaType:(QBImagePickerMediaType)mediaType
+{
+    _mediaType = mediaType;
+    
+    [self updateAssetCollections];
+}
+
 #pragma mark private
+
+- (BOOL)updateAssetCollectionsInProgress {
+    return _updateAssetCollectionsInProgress;
+}
+
+- (void)updateAssetsCollectionsStarted
+{
+    _updateAssetCollectionsInProgress = YES;
+}
+
+- (void)updateAssetsCollectionsFinished
+{
+    _updateAssetCollectionsInProgress = NO;
+}
 
 - (void)updateAssetCollections
 {
-    // Filter albums
-    NSMutableDictionary *smartAlbums = [NSMutableDictionary dictionaryWithCapacity:self.enabledAssetCollectionSubtypes.count];
-    NSMutableArray *userAlbums = [NSMutableArray array];
+    NSAssert([NSThread isMainThread], @"must be called on the main thread");
+    [self updateAssetsCollectionsStarted];
+    [self.operationQueue cancelAllOperations];
     
-    for (PHFetchResult *fetchResult in self.fetchResults) {
+    NSMutableDictionary *collectionsByType = [NSMutableDictionary dictionaryWithCapacity:self.enabledAssetCollectionSubtypes.count];
+    
+    for (PHFetchResult *fetchResult in self.fetchAssetCollectionsResults) {
         [fetchResult enumerateObjectsUsingBlock:^(PHAssetCollection *assetCollection, NSUInteger index, BOOL *stop) {
             PHAssetCollectionSubtype subtype = assetCollection.assetCollectionSubtype;
             
-            if (subtype == PHAssetCollectionSubtypeAlbumRegular) {
-                [userAlbums addObject:assetCollection];
-            } else if ([self.enabledAssetCollectionSubtypes containsObject:@(subtype)]) {
-                if (!smartAlbums[@(subtype)]) {
-                    smartAlbums[@(subtype)] = [NSMutableArray array];
-                }
-                [smartAlbums[@(subtype)] addObject:assetCollection];
+            if (![self.enabledAssetCollectionSubtypes containsObject:@(subtype)]) {
+                return;
             }
+            
+            if (!collectionsByType[@(subtype)]) {
+                collectionsByType[@(subtype)] = [NSMutableArray array];
+            }
+            QBAssetCollection *collection = [[QBAssetCollection alloc] initWithAssetCollection:assetCollection];
+            [collectionsByType[@(subtype)] addObject:collection];
+            
+            
+            __weak typeof(self)weakSelf = self;
+            void (^completionBlock)(QBFetchCollectionAssetsOperation *) = ^void(QBFetchCollectionAssetsOperation *operation) {
+                __strong typeof(self) strongSelf = weakSelf;
+                
+                if (operation.isCancelled || strongSelf.updateAssetCollectionsInProgress) {
+                    return;
+                }
+                
+                collection.assetFetchResult = operation.fetchResult;
+                
+                if ([strongSelf.delegate respondsToSelector:@selector(qb_assetCollectionDidChange:)]) {
+                    [strongSelf.delegate qb_assetCollectionDidChange:collection];
+                }
+            };
+            
+            // TODO: suspend queue to stop operations when vc in background (assets vc pushed on top)
+            [self.operationQueue addOperation:[[QBFetchCollectionAssetsOperation alloc] initWithCollection:assetCollection
+                                                                                               mediaType:self.mediaType
+                                                                                         completionBlock:completionBlock]];
         }];
     }
     
     NSMutableArray *assetCollections = [NSMutableArray array];
-    
-    // Fetch smart albums
-    for (NSNumber *assetCollectionSubtype in self.enabledAssetCollectionSubtypes) {
-        NSArray *collections = smartAlbums[assetCollectionSubtype];
+    for (NSNumber *subtype in self.enabledAssetCollectionSubtypes) {
+        NSArray *collections = collectionsByType[subtype];
         
         if (collections) {
             [assetCollections addObjectsFromArray:collections];
         }
     }
     
-    // Fetch user albums
-    [userAlbums enumerateObjectsUsingBlock:^(PHAssetCollection *assetCollection, NSUInteger index, BOOL *stop) {
-        [assetCollections addObject:assetCollection];
-    }];
-    
-    self.assetCollections = assetCollections;
+    _assetCollections = assetCollections;
+    _assetCollectionsByType = collectionsByType;
     [self.delegate qb_assetCollectionsDidChange];
+    [self updateAssetsCollectionsFinished];
 }
 
 #pragma mark - PHPhotoLibraryChangeObserver
@@ -108,9 +247,9 @@
 {
     dispatch_async(dispatch_get_main_queue(), ^{
         // Update fetch results
-        NSMutableArray *fetchResults = [self.fetchResults mutableCopy];
+        NSMutableArray *fetchResults = [self.fetchAssetCollectionsResults mutableCopy];
         
-        [self.fetchResults enumerateObjectsUsingBlock:^(PHFetchResult *fetchResult, NSUInteger index, BOOL *stop) {
+        [self.fetchAssetCollectionsResults enumerateObjectsUsingBlock:^(PHFetchResult *fetchResult, NSUInteger index, BOOL *stop) {
             PHFetchResultChangeDetails *changeDetails = [changeInstance changeDetailsForFetchResult:fetchResult];
             
             if (changeDetails) {
@@ -118,8 +257,8 @@
             }
         }];
         
-        if (![self.fetchResults isEqualToArray:fetchResults]) {
-            self.fetchResults = fetchResults;
+        if (![self.fetchAssetCollectionsResults isEqualToArray:fetchResults]) {
+            self.fetchAssetCollectionsResults = fetchResults;
             
             // Reload albums
             [self updateAssetCollections];
@@ -178,9 +317,10 @@
                                          @(PHAssetCollectionSubtypeAlbumMyPhotoStream),
                                          @(PHAssetCollectionSubtypeSmartAlbumPanoramas),
                                          @(PHAssetCollectionSubtypeSmartAlbumVideos),
-                                         @(PHAssetCollectionSubtypeSmartAlbumBursts)
+                                         @(PHAssetCollectionSubtypeSmartAlbumBursts),
+                                         @(PHAssetCollectionSubtypeAlbumRegular)
                                          ];
-    _collectionsController = [[QBAssetCollectionsController alloc] initWithAssetCollectionSubtypes:assetCollectionSubtypes];
+    _collectionsController = [[QBAssetCollectionsController alloc] initWithAssetCollectionSubtypes:assetCollectionSubtypes mediaType:QBImagePickerMediaTypeImage];
     _collectionsController.delegate = self;
     
     [self setUpToolbarItems];
@@ -272,16 +412,16 @@
 {
     QBAlbumCell *cell = [tableView dequeueReusableCellWithIdentifier:@"QBAlbumCell" forIndexPath:indexPath];
     
-    PHAssetCollection *assetCollection = self.collectionsController.assetCollections[indexPath.row];
-    [cell prepareForAssetCollection:assetCollection mediaType:self.mediaType atIndexPath:indexPath];
+    QBAssetCollection *assetCollection = self.collectionsController.assetCollections[indexPath.row];
+    [cell prepareForAssetCollection:assetCollection atIndexPath:indexPath];
     
     return cell;
 }
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
 {
-    PHAssetCollection *assetCollection = self.collectionsController.assetCollections[self.tableView.indexPathForSelectedRow.row];
-    [self.delegate qb_albumsViewController:self didSelectAssetCollection:assetCollection];
+    QBAssetCollection *assetCollection = self.collectionsController.assetCollections[self.tableView.indexPathForSelectedRow.row];
+    [self.delegate qb_albumsViewController:self didSelectAssetCollection:assetCollection.collection];
 }
 
 #pragma mark - QBAssetCollectionsControllerDelegate
@@ -294,6 +434,16 @@
     
     // TODO: preserve selection
     [self.tableView reloadData];
+}
+
+- (void)qb_assetCollectionDidChange:(QBAssetCollection *)collection
+{
+    NSUInteger index = [self.collectionsController.assetCollections indexOfObject:collection];
+    if (index == NSNotFound) {
+        NSLog(@"this should never happen oO");
+    }
+    
+    [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:index inSection:0]] withRowAnimation:UITableViewRowAnimationNone];
 }
 
 
