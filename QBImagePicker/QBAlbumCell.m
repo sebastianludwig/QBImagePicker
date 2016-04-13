@@ -117,13 +117,15 @@ static CGSize CGSizeScreenScale(CGSize size) {
 {
     PHImageManager *imageManager = [PHImageManager defaultManager];
     
+    __weak typeof(self)weakSelf = self;
     [imageManager requestImageForAsset:asset
                             targetSize:CGSizeScreenScale(imageView.frame.size)
                            contentMode:PHImageContentModeAspectFill
                                options:nil
                          resultHandler:^(UIImage *result, NSDictionary *info) {
+                             __strong typeof(self)strongSelf = weakSelf;
                              // TODO: handle error and canceled -> info dict
-                             if ([self.indexPath isEqual:indexPath]) {
+                             if ([strongSelf.indexPath isEqual:indexPath]) {
                                  imageView.image = result;
                              }
                          }];
