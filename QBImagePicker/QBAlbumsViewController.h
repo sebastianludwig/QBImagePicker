@@ -12,7 +12,7 @@
 #import "QBImagePickerTypes.h"
 #import "QBAssetCollection.h"
 #import "QBAssetCollectionsController.h"
-#import "QBAlbumsTableView.h"
+#import "QBAlbumsTableController.h"
 
 
 @class QBAlbumsViewController;
@@ -31,6 +31,6 @@
 
 @property (nonatomic, strong) QBAssetSelection *assetSelection; // TODO: setter should update Done button state
 
-@property (nonatomic, readonly) QBAlbumsTableView *tableView;
+@property (nonatomic, readonly) QBAlbumsTableController *albumsController;
 
 @end

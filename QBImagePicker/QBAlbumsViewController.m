@@ -10,7 +10,7 @@
 #import "QBBundle.h"
 
 
-@interface QBAlbumsViewController () <QBAlbumsTableViewDelegate>
+@interface QBAlbumsViewController () <QBAlbumsTableControllerDelegate>
 
 @property (nonatomic, strong) NSBundle *assetBundle;
 
@@ -21,7 +21,7 @@
 
 @implementation QBAlbumsViewController
 {
-    QBAlbumsTableView *_tableView;
+    QBAlbumsTableController *_albumsController;
 }
 
 - (instancetype)initWithCoder:(NSCoder *)aDecoder
@@ -50,15 +50,21 @@
     
     _assetBundle = [QBBundle imagePickerBundle];
     _assetSelection = [QBAssetSelection new];
+    _albumsController = [QBAlbumsTableController new];
+    _albumsController.delegate = self;
 }
 
 - (void)viewDidLoad
 {
     [super viewDidLoad];
     
-    _tableView = [[QBAlbumsTableView alloc] initWithFrame:self.view.bounds];
-    _tableView.albumsTableViewDelegate = self;
-    [self.view addSubview:_tableView];
+    UITableView *tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStylePlain];
+    
+    [self.view addSubview:tableView];
+    
+    self.albumsController.tableView = tableView;
+    tableView.dataSource = self.albumsController;
+    tableView.delegate = self.albumsController;
 }
 
 - (void)viewWillAppear:(BOOL)animated
@@ -69,17 +75,9 @@
     self.doneButton.enabled = [self.assetSelection isMinimumSelectionLimitFulfilled];
     self.navigationItem.rightBarButtonItem = self.assetSelection.allowsMultipleSelection ? self.doneButton : nil;
     
-    [self.tableView deselectRowAtIndexPath:self.tableView.indexPathForSelectedRow animated:YES];
+    [self.albumsController.tableView deselectRowAtIndexPath:self.albumsController.tableView.indexPathForSelectedRow animated:YES];
     
     [self updateSelectionInfo];
-}
-
-- (QBAlbumsTableView *)tableView
-{
-    if (!self.isViewLoaded) {
-        [self view];        // trigger view loading
-    }
-    return _tableView;
 }
 
 #pragma mark - Actions
@@ -129,7 +127,7 @@
 
 #pragma mark - QBAlbumsTableViewDelegate
 
-- (void)qb_albumsTableView:(QBAlbumsTableView *)tableView didSelectAssetCollection:(QBAssetCollection *)assetCollection
+- (void)qb_albumsTableController:(QBAlbumsTableController *)controller didSelectAssetCollection:(QBAssetCollection *)assetCollection
 {
     [self.delegate qb_albumsViewController:self didSelectAssetCollection:assetCollection];
 }

@@ -48,7 +48,7 @@
     self.albumsViewController = [[QBAlbumsViewController alloc] init];
     self.albumsViewController.delegate = self;
     self.albumsViewController.assetSelection = self.assetSelection;
-    self.albumsViewController.tableView.mediaType = self.mediaType;
+    self.albumsViewController.albumsController.mediaType = self.mediaType;
     self.albumsViewController.navigationItem.title = NSLocalizedStringFromTableInBundle(@"albums.title", @"QBImagePicker", _assetBundle, nil);
     
     self.albumsNavigationController = [[UINavigationController alloc] initWithRootViewController:self.albumsViewController];
@@ -104,12 +104,12 @@
 
 - (NSArray *)assetCollectionSubtypes
 {
-    return self.albumsViewController.tableView.collectionsController.enabledAssetCollectionSubtypes;
+    return self.albumsViewController.albumsController.collectionsController.enabledAssetCollectionSubtypes;
 }
 
 - (void)setAssetCollectionSubtypes:(NSArray *)assetCollectionSubtypes
 {
-    self.albumsViewController.tableView.collectionsController.enabledAssetCollectionSubtypes = assetCollectionSubtypes;
+    self.albumsViewController.albumsController.collectionsController.enabledAssetCollectionSubtypes = assetCollectionSubtypes;
 }
 
 #pragma mark - QBAlbumsViewControllerDelegate
