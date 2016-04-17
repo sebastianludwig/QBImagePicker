@@ -1,0 +1,21 @@
+/*
+ LDOImagePicker.strings
+ LDOImagePicker
+ 
+ Created by Sebastian Ludwig on 17.04.2016.
+ Copyright (c) 2016 Sebastian Ludwig. All rights reserved.
+ */
+
+"albums.title" = "Zdjęcia";
+
+"assets.footer.photo" = "%ld zdjęcie";
+"assets.footer.photos" = "Zdjęć: %ld";
+"assets.footer.video" = "%ld wideo";
+"assets.footer.videos" = "Wideo: %ld";
+"assets.footer.photo-and-video" = "%ld zdjęcie, %ld wideo";
+"assets.footer.photos-and-video" = "Zdjęć: %ld, %ld wideo";
+"assets.footer.photo-and-videos" = "%ld zdjęcie, %ld wideo";
+"assets.footer.photos-and-videos" = "Zdjęć: %ld, %ld wideo";
+
+"assets.toolbar.item-selected" = "%ld zaznaczona rzecz";
+"assets.toolbar.items-selected" = "Zaznaczonych rzeczy: %ld";
