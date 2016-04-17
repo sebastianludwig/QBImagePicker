@@ -23,6 +23,7 @@
 		9EAA23061CBA40E80010B5BA /* QBBundle.m in Sources */ = {isa = PBXBuildFile; fileRef = 9EAA23041CBA40E80010B5BA /* QBBundle.m */; };
 		9EAA23091CBA4DEC0010B5BA /* QBAlbumsTableController.h in Headers */ = {isa = PBXBuildFile; fileRef = 9EAA23071CBA4DEC0010B5BA /* QBAlbumsTableController.h */; };
 		9EAA230A1CBA4DEC0010B5BA /* QBAlbumsTableController.m in Sources */ = {isa = PBXBuildFile; fileRef = 9EAA23081CBA4DEC0010B5BA /* QBAlbumsTableController.m */; };
+		9EAA230C1CBA5CAB0010B5BA /* QBAssetCell.xib in Resources */ = {isa = PBXBuildFile; fileRef = 9EAA230B1CBA5CAB0010B5BA /* QBAssetCell.xib */; };
 		AA3AD06F1ACF9A3A00BF523E /* QBVideoIconView.h in Headers */ = {isa = PBXBuildFile; fileRef = AA3AD06D1ACF9A3A00BF523E /* QBVideoIconView.h */; };
 		AA3AD0701ACF9A3A00BF523E /* QBVideoIconView.m in Sources */ = {isa = PBXBuildFile; fileRef = AA3AD06E1ACF9A3A00BF523E /* QBVideoIconView.m */; };
 		AA3AD0731ACFA06700BF523E /* QBVideoIndicatorView.h in Headers */ = {isa = PBXBuildFile; fileRef = AA3AD0711ACFA06700BF523E /* QBVideoIndicatorView.h */; };
@@ -47,7 +48,6 @@
 		AABBF0911ACEDDFF003188A3 /* QBCheckmarkView.m in Sources */ = {isa = PBXBuildFile; fileRef = AABBF08F1ACEDDFF003188A3 /* QBCheckmarkView.m */; };
 		AAF1CA1A1ACE5467005F6295 /* QBAlbumCell.h in Headers */ = {isa = PBXBuildFile; fileRef = AAF1CA181ACE5467005F6295 /* QBAlbumCell.h */; };
 		AAF1CA1B1ACE5467005F6295 /* QBAlbumCell.m in Sources */ = {isa = PBXBuildFile; fileRef = AAF1CA191ACE5467005F6295 /* QBAlbumCell.m */; };
-		AAF1CA231ACE5598005F6295 /* QBImagePicker.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AAF1CA221ACE5598005F6295 /* QBImagePicker.storyboard */; };
 		AAF1CA2F1ACE6E46005F6295 /* QBAssetsViewController.h in Headers */ = {isa = PBXBuildFile; fileRef = AAF1CA2D1ACE6E46005F6295 /* QBAssetsViewController.h */; };
 		AAF1CA301ACE6E46005F6295 /* QBAssetsViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = AAF1CA2E1ACE6E46005F6295 /* QBAssetsViewController.m */; };
 		AAF1CA331ACE6FB5005F6295 /* QBAssetCell.h in Headers */ = {isa = PBXBuildFile; fileRef = AAF1CA311ACE6FB5005F6295 /* QBAssetCell.h */; };
@@ -112,6 +112,7 @@
 		9EAA23041CBA40E80010B5BA /* QBBundle.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = QBBundle.m; sourceTree = "<group>"; };
 		9EAA23071CBA4DEC0010B5BA /* QBAlbumsTableController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = QBAlbumsTableController.h; sourceTree = "<group>"; };
 		9EAA23081CBA4DEC0010B5BA /* QBAlbumsTableController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = QBAlbumsTableController.m; sourceTree = "<group>"; };
+		9EAA230B1CBA5CAB0010B5BA /* QBAssetCell.xib */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.xib; path = QBAssetCell.xib; sourceTree = "<group>"; };
 		AA3AD06D1ACF9A3A00BF523E /* QBVideoIconView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = QBVideoIconView.h; sourceTree = "<group>"; };
 		AA3AD06E1ACF9A3A00BF523E /* QBVideoIconView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = QBVideoIconView.m; sourceTree = "<group>"; };
 		AA3AD0711ACFA06700BF523E /* QBVideoIndicatorView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = QBVideoIndicatorView.h; sourceTree = "<group>"; };
@@ -347,6 +348,7 @@
 				AAF1CA221ACE5598005F6295 /* QBImagePicker.storyboard */,
 				AAF1CA3F1ACE8918005F6295 /* QBImagePicker.strings */,
 				9E815BAD1CAA238C00839192 /* QBAlbumCell.xib */,
+				9EAA230B1CBA5CAB0010B5BA /* QBAssetCell.xib */,
 			);
 			name = Resources;
 			sourceTree = "<group>";
@@ -510,8 +512,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				E521B0A21B01D9300079461F /* QBImagePicker.strings in Resources */,
-				AAF1CA231ACE5598005F6295 /* QBImagePicker.storyboard in Resources */,
 				9E815BAE1CAA238C00839192 /* QBAlbumCell.xib in Resources */,
+				9EAA230C1CBA5CAB0010B5BA /* QBAssetCell.xib in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

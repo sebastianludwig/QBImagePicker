@@ -10,6 +10,7 @@
 
 @implementation QBBundle
 
+// TODO: rename to contain pod prefix
 + (NSBundle *)imagePickerBundle
 {
     NSBundle *bundle = [NSBundle bundleForClass:self];

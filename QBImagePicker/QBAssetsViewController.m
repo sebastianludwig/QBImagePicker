@@ -17,6 +17,7 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     return CGSizeMake(size.width * scale, size.height * scale);
 }
 
+// TODO: inline
 @implementation NSIndexSet (Convenience)
 
 - (NSArray *)qb_indexPathsFromIndexesWithSection:(NSUInteger)section
@@ -30,6 +31,7 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
 
 @end
 
+// TODO: inline
 @implementation UICollectionView (Convenience)
 
 - (NSArray *)qb_indexPathsForElementsInRect:(CGRect)rect
@@ -47,121 +49,74 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
 
 @end
 
-@interface QBAssetsViewController () <PHPhotoLibraryChangeObserver, UICollectionViewDelegateFlowLayout>
 
-@property (nonatomic, strong) NSBundle *assetBundle;
 
-@property (nonatomic, strong) UIBarButtonItem *infoToolbarItem;
-@property (nonatomic, strong) IBOutlet UIBarButtonItem *doneButton;
 
-@property (nonatomic, strong) PHFetchResult *fetchResult;
+@interface QBAssetCollectionViewController () <PHPhotoLibraryChangeObserver>
 
-@property (nonatomic, strong) PHCachingImageManager *imageManager;
-@property (nonatomic, assign) CGRect previousPreheatRect;
+@property (nonatomic) PHCachingImageManager *imageManager;
+@property (nonatomic) CGRect previousPreheatRect;
 
-@property (nonatomic, assign) BOOL disableScrollToBottom;
-@property (nonatomic, strong) NSIndexPath *lastSelectedItemIndexPath;
+@property (nonatomic) NSIndexPath *lastSelectedItemIndexPath;
 
 @end
 
-@implementation QBAssetsViewController
 
-- (instancetype)initWithCoder:(NSCoder *)aDecoder
+@implementation QBAssetCollectionViewController
+
+- (instancetype)init
 {
-    self = [super initWithCoder:aDecoder];
-    if (self) {
-        _assetBundle = [QBBundle imagePickerBundle];
-        _assetSelection = [QBAssetSelection new];
+    if (self = [super init]) {
+        _numberOfColumns = 4;
+        UICollectionViewFlowLayout *layout = [UICollectionViewFlowLayout new];
+        layout.minimumInteritemSpacing = 2;
+        layout.minimumLineSpacing = 2;
+        layout.footerReferenceSize = CGSizeMake(66, 66);
+        _collectionViewLayout = layout;
+        
+        _imageManager = [PHCachingImageManager new];
+        [self resetCachedAssets];
+        
+        [[PHPhotoLibrary sharedPhotoLibrary] registerChangeObserver:self];
     }
     return self;
 }
 
-- (void)viewDidLoad
-{
-    [super viewDidLoad];
-    
-    self.imageManager = [PHCachingImageManager new];
-    
-    [self setUpToolbarItems];
-    [self resetCachedAssets];
-    
-    self.collectionView.allowsMultipleSelection = self.assetSelection.allowsMultipleSelection;
-    
-    // Register observer
-    [[PHPhotoLibrary sharedPhotoLibrary] registerChangeObserver:self];
-}
-
-- (void)viewWillAppear:(BOOL)animated
-{
-    [super viewWillAppear:animated];
-    
-    // Configure navigation item
-    self.navigationItem.title = self.assetCollection.localizedTitle;
-    
-    
-    // Show/hide 'Done' button
-    if (self.assetSelection.allowsMultipleSelection) {
-        [self.navigationItem setRightBarButtonItem:self.doneButton animated:NO];
-    } else {
-        [self.navigationItem setRightBarButtonItem:nil animated:NO];
-    }
-    
-    [self updateDoneButtonState];
-    [self updateSelectionInfo];
-    [self.collectionView reloadData];
-    
-    // Scroll to bottom
-    if (self.fetchResult.count > 0 && self.isMovingToParentViewController && !self.disableScrollToBottom) {
-        NSIndexPath *indexPath = [NSIndexPath indexPathForItem:(self.fetchResult.count - 1) inSection:0];
-        [self.collectionView scrollToItemAtIndexPath:indexPath atScrollPosition:UICollectionViewScrollPositionTop animated:NO];
-    }
-}
-
-- (void)viewWillDisappear:(BOOL)animated
-{
-    [super viewWillDisappear:animated];
-    
-    self.disableScrollToBottom = YES;
-}
-
-- (void)viewDidAppear:(BOOL)animated
-{
-    [super viewDidAppear:animated];
-    
-    self.disableScrollToBottom = NO;
-    
-    [self updateCachedAssets];
-}
-
-- (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator
-{
-    // Save indexPath for the last item
-    NSIndexPath *indexPath = [[self.collectionView indexPathsForVisibleItems] lastObject];
-    
-    // Update layout
-    [self.collectionViewLayout invalidateLayout];
-    
-    // Restore scroll position
-    [coordinator animateAlongsideTransition:nil completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
-        [self.collectionView scrollToItemAtIndexPath:indexPath atScrollPosition:UICollectionViewScrollPositionBottom animated:NO];
-    }];
-}
-
 - (void)dealloc
 {
-    // Deregister observer
     [[PHPhotoLibrary sharedPhotoLibrary] unregisterChangeObserver:self];
 }
 
+- (void)awakeFromNib
+{
+    [super awakeFromNib];
+    
+    [self setupCollectionView];
+}
 
 #pragma mark - Accessors
 
-- (void)setAssetCollection:(PHAssetCollection *)assetCollection
+- (void)setFetchResult:(PHFetchResult *)fetchResult
 {
-    _assetCollection = assetCollection;
+    _fetchResult = fetchResult;
     
-    [self updateFetchRequest];
+    if (self.assetSelection.isAutoDeselectEnabled && self.assetSelection.count > 0) {
+        // Get index of previous selected asset
+        PHAsset *asset = [self.assetSelection.assets firstObject];
+        NSInteger assetIndex = [self.fetchResult indexOfObject:asset];
+        self.lastSelectedItemIndexPath = [NSIndexPath indexPathForItem:assetIndex inSection:0];
+    }
+    
     [self.collectionView reloadData];
+    
+    // TDOO: check if this needs to resetCachedAssets
+}
+
+- (void)setNumberOfColumns:(NSUInteger)numberOfColumns
+{
+    _numberOfColumns = numberOfColumns;
+    
+    [self.collectionViewLayout invalidateLayout];
 }
 
 - (void)setAssetSelection:(QBAssetSelection *)assetSelection
@@ -170,90 +125,19 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     self.collectionView.allowsMultipleSelection = _assetSelection.allowsMultipleSelection;
 }
 
-
-#pragma mark - Actions
-
-- (IBAction)done:(id)sender
+- (void)setCollectionView:(UICollectionView *)collectionView
 {
-    [self.delegate qb_assetsViewControllerDidFinish:self];
+    _collectionView = collectionView;
+    [self setupCollectionView];
 }
 
-
-#pragma mark - Toolbar
-
-- (void)setUpToolbarItems
+- (void)setupCollectionView
 {
-    // Space
-    UIBarButtonItem *leftSpace = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:NULL];
-    UIBarButtonItem *rightSpace = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:NULL];
-    
-    // Info label
-    NSDictionary *attributes = @{ NSForegroundColorAttributeName: [UIColor blackColor] };
-    self.infoToolbarItem = [[UIBarButtonItem alloc] initWithTitle:@"" style:UIBarButtonItemStylePlain target:nil action:NULL];
-    self.infoToolbarItem.enabled = NO;
-    [self.infoToolbarItem setTitleTextAttributes:attributes forState:UIControlStateNormal];
-    [self.infoToolbarItem setTitleTextAttributes:attributes forState:UIControlStateDisabled];
-    
-    self.toolbarItems = @[leftSpace, self.infoToolbarItem, rightSpace];
+    UINib *nib = [UINib nibWithNibName:@"QBAssetCell" bundle:[QBBundle imagePickerBundle]];
+    [self.collectionView registerNib:nib forCellWithReuseIdentifier:@"QBAssetCell"];
+    [self.collectionView registerClass:[UICollectionReusableView class] forSupplementaryViewOfKind:UICollectionElementKindSectionFooter withReuseIdentifier:@"QBFooterView"];
+    self.collectionView.allowsMultipleSelection = self.assetSelection.allowsMultipleSelection;
 }
-
-- (void)updateSelectionInfo
-{
-    NSUInteger count = self.assetSelection.count;
-    
-    if (count > 0) {
-        NSString *identifier = count == 1 ? @"assets.toolbar.item-selected" : @"assets.toolbar.items-selected";
-        NSString *format = NSLocalizedStringFromTableInBundle(identifier, @"QBImagePicker", self.assetBundle, nil);
-        NSString *title = [NSString stringWithFormat:format, count];
-        [self.infoToolbarItem setTitle:title];
-    } else {
-        [self.infoToolbarItem setTitle:@""];
-    }
-}
-
-
-#pragma mark - Fetching Assets
-
-- (void)updateFetchRequest
-{
-    if (self.assetCollection) {
-        PHFetchOptions *options = [PHFetchOptions new];
-        
-        switch (self.mediaType) {
-            case QBImagePickerMediaTypeImage:
-                options.predicate = [NSPredicate predicateWithFormat:@"mediaType == %ld", PHAssetMediaTypeImage];
-                break;
-                
-            case QBImagePickerMediaTypeVideo:
-                options.predicate = [NSPredicate predicateWithFormat:@"mediaType == %ld", PHAssetMediaTypeVideo];
-                break;
-                
-            default:
-                break;
-        }
-        
-        self.fetchResult = [PHAsset fetchAssetsInAssetCollection:self.assetCollection options:options];
-        
-        if (self.assetSelection.isAutoDeselectEnabled && self.assetSelection.count > 0) {
-            // Get index of previous selected asset
-            PHAsset *asset = [self.assetSelection.assets firstObject];
-            NSInteger assetIndex = [self.fetchResult indexOfObject:asset];
-            self.lastSelectedItemIndexPath = [NSIndexPath indexPathForItem:assetIndex inSection:0];
-        }
-    } else {
-        self.fetchResult = nil;
-    }
-}
-
-
-#pragma mark - Checking for Selection Limit
-
-
-- (void)updateDoneButtonState
-{
-    self.doneButton.enabled = self.assetSelection.isMinimumSelectionLimitFulfilled;
-}
-
 
 #pragma mark - Asset Caching
 
@@ -265,7 +149,7 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
 
 - (void)updateCachedAssets
 {
-    BOOL isViewVisible = [self isViewLoaded] && self.view.window != nil;
+    BOOL isViewVisible = self.collectionView && self.collectionView.superview;
     if (!isViewVisible) { return; }
     
     // The preheat window is twice the height of the visible rect
@@ -351,47 +235,6 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     return assets;
 }
 
-
-#pragma mark - PHPhotoLibraryChangeObserver
-
-- (void)photoLibraryDidChange:(PHChange *)changeInstance
-{
-    dispatch_async(dispatch_get_main_queue(), ^{
-        PHFetchResultChangeDetails *collectionChanges = [changeInstance changeDetailsForFetchResult:self.fetchResult];
-        
-        if (collectionChanges) {
-            // Get the new fetch result
-            self.fetchResult = [collectionChanges fetchResultAfterChanges];
-            
-            if (![collectionChanges hasIncrementalChanges] || [collectionChanges hasMoves]) {
-                // We need to reload all if the incremental diffs are not available
-                [self.collectionView reloadData];
-            } else {
-                // If we have incremental diffs, tell the collection view to animate insertions and deletions
-                [self.collectionView performBatchUpdates:^{
-                    NSIndexSet *removedIndexes = [collectionChanges removedIndexes];
-                    if ([removedIndexes count]) {
-                        [self.collectionView deleteItemsAtIndexPaths:[removedIndexes qb_indexPathsFromIndexesWithSection:0]];
-                    }
-                    
-                    NSIndexSet *insertedIndexes = [collectionChanges insertedIndexes];
-                    if ([insertedIndexes count]) {
-                        [self.collectionView insertItemsAtIndexPaths:[insertedIndexes qb_indexPathsFromIndexesWithSection:0]];
-                    }
-                    
-                    NSIndexSet *changedIndexes = [collectionChanges changedIndexes];
-                    if ([changedIndexes count]) {
-                        [self.collectionView reloadItemsAtIndexPaths:[changedIndexes qb_indexPathsFromIndexesWithSection:0]];
-                    }
-                } completion:NULL];
-            }
-            
-            [self resetCachedAssets];
-        }
-    });
-}
-
-
 #pragma mark - UIScrollViewDelegate
 
 - (void)scrollViewDidScroll:(UIScrollView *)scrollView
@@ -399,13 +242,7 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     [self updateCachedAssets];
 }
 
-
 #pragma mark - UICollectionViewDataSource
-
-- (NSInteger)numberOfSectionsInCollectionView:(UICollectionView *)collectionView
-{
-    return 1;
-}
 
 - (NSInteger)collectionView:(UICollectionView *)collectionView numberOfItemsInSection:(NSInteger)section
 {
@@ -414,44 +251,12 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
 
 - (UICollectionViewCell *)collectionView:(UICollectionView *)collectionView cellForItemAtIndexPath:(NSIndexPath *)indexPath
 {
-    QBAssetCell *cell = [collectionView dequeueReusableCellWithReuseIdentifier:@"AssetCell" forIndexPath:indexPath];
-    cell.tag = indexPath.item;
-    cell.showsOverlayViewWhenSelected = self.assetSelection.allowsMultipleSelection;
-    
-    // Image
     PHAsset *asset = self.fetchResult[indexPath.item];
+    
+    QBAssetCell *cell = [collectionView dequeueReusableCellWithReuseIdentifier:@"QBAssetCell" forIndexPath:indexPath];
+    cell.showsOverlayViewWhenSelected = self.assetSelection.allowsMultipleSelection;
     CGSize itemSize = [(UICollectionViewFlowLayout *)collectionView.collectionViewLayout itemSize];
-    CGSize targetSize = CGSizeScale(itemSize, [[UIScreen mainScreen] scale]);
-    
-    [self.imageManager requestImageForAsset:asset
-                                 targetSize:targetSize
-                                contentMode:PHImageContentModeAspectFill
-                                    options:nil
-                              resultHandler:^(UIImage *result, NSDictionary *info) {
-                                  if (cell.tag == indexPath.item) {
-                                      cell.imageView.image = result;
-                                  }
-                              }];
-    
-    // Video indicator
-    if (asset.mediaType == PHAssetMediaTypeVideo) {
-        cell.videoIndicatorView.hidden = NO;
-        
-        NSInteger minutes = (NSInteger)(asset.duration / 60.0);
-        NSInteger seconds = (NSInteger)ceil(asset.duration - 60.0 * (double)minutes);
-        cell.videoIndicatorView.timeLabel.text = [NSString stringWithFormat:@"%02ld:%02ld", (long)minutes, (long)seconds];
-        
-        if (asset.mediaSubtypes & PHAssetMediaSubtypeVideoHighFrameRate) {
-            cell.videoIndicatorView.videoIcon.hidden = YES;
-            cell.videoIndicatorView.slomoIcon.hidden = NO;
-        }
-        else {
-            cell.videoIndicatorView.videoIcon.hidden = NO;
-            cell.videoIndicatorView.slomoIcon.hidden = YES;
-        }
-    } else {
-        cell.videoIndicatorView.hidden = YES;
-    }
+    [cell prepareForAsset:asset itemSize:itemSize indexPath:indexPath imageManager:self.imageManager];
     
     // Selection state
     if ([self.assetSelection containsAsset:asset]) {
@@ -465,17 +270,23 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
 - (UICollectionReusableView *)collectionView:(UICollectionView *)collectionView viewForSupplementaryElementOfKind:(NSString *)kind atIndexPath:(NSIndexPath *)indexPath
 {
     if (kind != UICollectionElementKindSectionFooter) {
-        return nil;
+        UICollectionReusableView *mustNotReturnNilView = [UICollectionReusableView new];
+        mustNotReturnNilView.hidden = YES;
+        return mustNotReturnNilView;
     }
     
-    UICollectionReusableView *footerView = [collectionView dequeueReusableSupplementaryViewOfKind:UICollectionElementKindSectionFooter
-                                                                              withReuseIdentifier:@"FooterView"
-                                                                                     forIndexPath:indexPath];
+    UICollectionReusableView *footerView = [collectionView dequeueReusableSupplementaryViewOfKind:kind withReuseIdentifier:@"QBFooterView" forIndexPath:indexPath];
     
     // Number of assets
-    UILabel *label = (UILabel *)[footerView viewWithTag:1];
+    UILabel *label = [UILabel new];
+    label.textAlignment = NSTextAlignmentCenter;
+    [footerView addSubview:label];
+    label.translatesAutoresizingMaskIntoConstraints = NO;
+    [footerView addConstraint:[label.leftAnchor constraintEqualToAnchor:footerView.leftAnchor]];
+    [footerView addConstraint:[label.rightAnchor constraintEqualToAnchor:footerView.rightAnchor]];
+    [footerView addConstraint:[label.centerYAnchor constraintEqualToAnchor:footerView.centerYAnchor]];
     
-    NSBundle *bundle = self.assetBundle;
+    NSBundle *bundle = [QBBundle imagePickerBundle];
     NSUInteger numberOfPhotos = [self.fetchResult countOfAssetsWithMediaType:PHAssetMediaTypeImage];
     NSUInteger numberOfVideos = [self.fetchResult countOfAssetsWithMediaType:PHAssetMediaTypeVideo];
     
@@ -526,9 +337,9 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
 
 - (BOOL)collectionView:(UICollectionView *)collectionView shouldSelectItemAtIndexPath:(NSIndexPath *)indexPath
 {
-    if ([self.delegate respondsToSelector:@selector(qb_assetsViewController:shouldSelectAsset:)]) {
+    if ([self.delegate respondsToSelector:@selector(qb_assetCollectionController:shouldSelectAsset:)]) {
         PHAsset *asset = self.fetchResult[indexPath.item];
-        return [self.delegate qb_assetsViewController:self shouldSelectAsset:asset];
+        return [self.delegate qb_assetCollectionController:self shouldSelectAsset:asset];
     }
     
     if ([self.assetSelection isAutoDeselectEnabled]) {
@@ -545,10 +356,6 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     // Add asset to set
     [self.assetSelection addAsset:asset];
     
-    if ([self.delegate respondsToSelector:@selector(qb_assetsViewController:didSelectAsset:)]) {
-        [self.delegate qb_assetsViewController:self didSelectAsset:asset];
-    }
-    
     if (self.assetSelection.allowsMultipleSelection) {
         if (self.assetSelection.isAutoDeselectEnabled && self.assetSelection.count > 1) {
             // Remove previous selected asset from set
@@ -562,19 +369,16 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
         
         self.lastSelectedItemIndexPath = indexPath;
         
-        [self updateDoneButtonState];
-        
-        if (self.showsNumberOfSelectedAssets) {
-            [self updateSelectionInfo];
-            
-            if (self.assetSelection.count == 1) {
-                // Show toolbar
-                [self.navigationController setToolbarHidden:NO animated:YES];
-            }
+        if ([self.delegate respondsToSelector:@selector(qb_assetCollectionController:didSelectAsset:)]) {
+            [self.delegate qb_assetCollectionController:self didSelectAsset:asset];
         }
     } else {
-        if ([self.delegate respondsToSelector:@selector(qb_assetsViewControllerDidFinish:)]) {
-            [self.delegate qb_assetsViewControllerDidFinish:self];
+        if ([self.delegate respondsToSelector:@selector(qb_assetCollectionController:didSelectAsset:)]) {
+            [self.delegate qb_assetCollectionController:self didSelectAsset:asset];
+        }
+        
+        if ([self.delegate respondsToSelector:@selector(qb_assetCollectionControllerDidFinish:)]) {
+            [self.delegate qb_assetCollectionControllerDidFinish:self];
         }
     }
 }
@@ -592,37 +396,267 @@ static CGSize CGSizeScale(CGSize size, CGFloat scale) {
     
     self.lastSelectedItemIndexPath = nil;
     
-    [self updateDoneButtonState];
-    
-    if (self.showsNumberOfSelectedAssets) {
-        [self updateSelectionInfo];
-        
-        if (self.assetSelection.count == 0) {
-            // Hide toolbar
-            [self.navigationController setToolbarHidden:YES animated:YES];
-        }
-    }
-    
-    if ([self.delegate respondsToSelector:@selector(qb_assetsViewController:didDeselectAsset:)]) {
-        [self.delegate qb_assetsViewController:self didDeselectAsset:asset];
+    if ([self.delegate respondsToSelector:@selector(qb_assetCollectionController:didDeselectAsset:)]) {
+        [self.delegate qb_assetCollectionController:self didDeselectAsset:asset];
     }
 }
-
 
 #pragma mark - UICollectionViewDelegateFlowLayout
 
 - (CGSize)collectionView:(UICollectionView *)collectionView layout:(UICollectionViewLayout *)collectionViewLayout sizeForItemAtIndexPath:(NSIndexPath *)indexPath
 {
-    NSUInteger numberOfColumns;
-    if (UIInterfaceOrientationIsPortrait([[UIApplication sharedApplication] statusBarOrientation])) {
-        numberOfColumns = self.numberOfColumnsInPortrait;
-    } else {
-        numberOfColumns = self.numberOfColumnsInLandscape;
+    CGFloat spacing = 2;
+    if ([self.collectionViewLayout isKindOfClass:[UICollectionViewFlowLayout class]]) {
+        spacing = [(UICollectionViewFlowLayout *)self.collectionViewLayout minimumInteritemSpacing];
     }
-    
-    CGFloat width = (CGRectGetWidth(self.view.frame) - 2.0 * (numberOfColumns - 1)) / numberOfColumns;
+    CGFloat width = (CGRectGetWidth(self.collectionView.frame) - spacing * (self.numberOfColumns - 1)) / self.numberOfColumns;
     
     return CGSizeMake(width, width);
+}
+
+#pragma mark - PHPhotoLibraryChangeObserver
+
+- (void)photoLibraryDidChange:(PHChange *)changeInstance
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        PHFetchResultChangeDetails *collectionChanges = [changeInstance changeDetailsForFetchResult:self.fetchResult];
+        
+        if (collectionChanges) {
+            // Get the new fetch result
+            self.fetchResult = [collectionChanges fetchResultAfterChanges];
+            
+            if (![collectionChanges hasIncrementalChanges] || [collectionChanges hasMoves]) {
+                // We need to reload all if the incremental diffs are not available
+                [self.collectionView reloadData];
+            } else {
+                // If we have incremental diffs, tell the collection view to animate insertions and deletions
+                [self.collectionView performBatchUpdates:^{
+                    NSIndexSet *removedIndexes = [collectionChanges removedIndexes];
+                    if ([removedIndexes count]) {
+                        [self.collectionView deleteItemsAtIndexPaths:[removedIndexes qb_indexPathsFromIndexesWithSection:0]];
+                    }
+                    
+                    NSIndexSet *insertedIndexes = [collectionChanges insertedIndexes];
+                    if ([insertedIndexes count]) {
+                        [self.collectionView insertItemsAtIndexPaths:[insertedIndexes qb_indexPathsFromIndexesWithSection:0]];
+                    }
+                    
+                    NSIndexSet *changedIndexes = [collectionChanges changedIndexes];
+                    if ([changedIndexes count]) {
+                        [self.collectionView reloadItemsAtIndexPaths:[changedIndexes qb_indexPathsFromIndexesWithSection:0]];
+                    }
+                } completion:NULL];
+            }
+            
+            [self resetCachedAssets];
+        }
+    });
+}
+
+@end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@interface QBAssetsViewController () <QBAssetCollectionControllerDelegate>
+
+@property (nonatomic, strong) NSBundle *assetBundle;
+
+@property (nonatomic, strong) UIBarButtonItem *infoToolbarItem;
+@property (nonatomic, strong) IBOutlet UIBarButtonItem *doneButton;
+
+@property (nonatomic, assign) BOOL scrollToBottomEnabled;
+
+@end
+
+@implementation QBAssetsViewController
+
+- (instancetype)initWithCoder:(NSCoder *)aDecoder
+{
+    self = [super initWithCoder:aDecoder];
+    if (self) {
+        [self setup];
+    }
+    return self;
+}
+
+- (instancetype)init
+{
+    if (self = [super init]) {
+        [self setup];
+    }
+    return self;
+}
+
+- (void)setup
+{
+    _assetBundle = [QBBundle imagePickerBundle];
+    _collectionViewController = [QBAssetCollectionViewController new];
+    _collectionViewController.delegate = self;
+    
+    
+    // Space
+    UIBarButtonItem *leftSpace = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:NULL];
+    UIBarButtonItem *rightSpace = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:NULL];
+    
+    // Info label
+    NSDictionary *attributes = @{ NSForegroundColorAttributeName: [UIColor blackColor] };
+    self.infoToolbarItem = [[UIBarButtonItem alloc] initWithTitle:@"" style:UIBarButtonItemStylePlain target:nil action:NULL];
+    self.infoToolbarItem.enabled = NO;
+    [self.infoToolbarItem setTitleTextAttributes:attributes forState:UIControlStateNormal];
+    [self.infoToolbarItem setTitleTextAttributes:attributes forState:UIControlStateDisabled];
+    
+    self.toolbarItems = @[leftSpace, self.infoToolbarItem, rightSpace];
+}
+
+- (void)viewDidLoad
+{
+    [super viewDidLoad];
+    
+    UICollectionView *collectionView = [[UICollectionView alloc] initWithFrame:self.view.bounds collectionViewLayout:self.collectionViewController.collectionViewLayout];
+    collectionView.backgroundColor = [UIColor whiteColor];
+    
+    self.collectionViewController.collectionView = collectionView;
+    collectionView.dataSource = self.collectionViewController;
+    collectionView.delegate = self.collectionViewController;
+    
+    [self.view addSubview:collectionView];
+}
+
+- (void)viewWillAppear:(BOOL)animated
+{
+    [super viewWillAppear:animated];
+    
+    // Show/hide 'Done' button
+    if (self.collectionViewController.assetSelection.allowsMultipleSelection) {
+        [self.navigationItem setRightBarButtonItem:self.doneButton animated:NO];
+    } else {
+        [self.navigationItem setRightBarButtonItem:nil animated:NO];
+    }
+    
+    if (UIInterfaceOrientationIsPortrait([[UIApplication sharedApplication] statusBarOrientation])) {
+        [self updateNumberOfCollectionViewColumnsForSize:self.view.frame.size];
+    }
+    
+    [self updateDoneButtonState];
+    [self updateSelectionInfo];
+    [self.collectionViewController.collectionView reloadData];
+    
+    // Scroll to bottom
+    if (self.collectionViewController.fetchResult.count > 0 && self.isMovingToParentViewController && self.scrollToBottomEnabled) {
+        NSIndexPath *indexPath = [NSIndexPath indexPathForItem:(self.collectionViewController.fetchResult.count - 1) inSection:0];
+        [self.collectionViewController.collectionView scrollToItemAtIndexPath:indexPath atScrollPosition:UICollectionViewScrollPositionTop animated:NO];
+    }
+}
+
+- (void)viewWillDisappear:(BOOL)animated
+{
+    [super viewWillDisappear:animated];
+    
+    self.scrollToBottomEnabled = NO;
+}
+
+- (void)viewDidAppear:(BOOL)animated
+{
+    [super viewDidAppear:animated];
+    
+    self.scrollToBottomEnabled = YES;
+    
+    [self.collectionViewController updateCachedAssets];    // TODO: get rid of this call
+}
+
+- (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator
+{
+    // Save indexPath for the last item
+    NSIndexPath *indexPath = [[self.collectionViewController.collectionView indexPathsForVisibleItems] lastObject];
+    
+    [self updateNumberOfCollectionViewColumnsForSize:size];
+    
+    // Restore scroll position
+    [coordinator animateAlongsideTransition:nil completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+        [self.collectionViewController.collectionView scrollToItemAtIndexPath:indexPath atScrollPosition:UICollectionViewScrollPositionBottom animated:NO];
+    }];
+}
+
+
+#pragma mark Actions
+
+- (IBAction)done:(id)sender
+{
+    [self.delegate qb_assetsViewControllerDidFinish:self];
+}
+
+
+#pragma mark Update UI
+
+- (void)updateNumberOfCollectionViewColumnsForSize:(CGSize)size
+{
+    self.collectionViewController.numberOfColumns = size.height > size.width ? self.numberOfColumnsInPortrait : self.numberOfColumnsInLandscape;
+}
+
+- (void)updateUI
+{
+    [self updateDoneButtonState];
+    
+    if (self.showsNumberOfSelectedAssets) {
+        [self updateSelectionInfo];
+        
+        [self.navigationController setToolbarHidden:self.collectionViewController.assetSelection.count == 0 animated:YES];
+    }
+}
+
+- (void)updateSelectionInfo
+{
+    NSUInteger count = self.collectionViewController.assetSelection.count;
+    
+    if (count > 0) {
+        NSString *identifier = count == 1 ? @"assets.toolbar.item-selected" : @"assets.toolbar.items-selected";
+        NSString *format = NSLocalizedStringFromTableInBundle(identifier, @"QBImagePicker", self.assetBundle, nil);
+        NSString *title = [NSString stringWithFormat:format, count];
+        [self.infoToolbarItem setTitle:title];
+    } else {
+        [self.infoToolbarItem setTitle:@""];
+    }
+}
+
+- (void)updateDoneButtonState
+{
+    self.doneButton.enabled = self.collectionViewController.assetSelection.isMinimumSelectionLimitFulfilled;
+}
+
+#pragma mark - QBAssetCollectionControllerDelegate
+
+- (void)qb_assetCollectionControllerDidFinish:(QBAssetCollectionViewController *)assetCollectionController
+{
+    [self.delegate qb_assetsViewControllerDidFinish:self];
+}
+
+- (void)qb_assetCollectionController:(QBAssetCollectionViewController *)assetCollectionController didSelectAsset:(PHAsset *)asset
+{
+    [self updateUI];
+    
+    if ([self.delegate respondsToSelector:@selector(qb_assetsViewController:didSelectAsset:)]) {
+        [self.delegate qb_assetsViewController:self didSelectAsset:asset];
+    }
+}
+
+- (void)qb_assetCollectionController:(QBAssetCollectionViewController *)assetCollectionController didDeselectAsset:(PHAsset *)asset
+{
+    [self updateUI];
+    
+    if ([self.delegate respondsToSelector:@selector(qb_assetCollectionController:didDeselectAsset:)]) {
+        [self.delegate qb_assetsViewController:self didDeselectAsset:asset];
+    }
 }
 
 @end

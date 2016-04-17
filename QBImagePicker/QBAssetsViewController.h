@@ -11,6 +11,42 @@
 #import "QBImagePickerTypes.h"
 #import "QBAssetSelection.h"
 
+
+
+@class QBAssetCollectionViewController;
+
+@protocol QBAssetCollectionControllerDelegate <NSObject>
+
+- (void)qb_assetCollectionControllerDidFinish:(QBAssetCollectionViewController *)assetCollectionController;
+
+@optional
+- (BOOL)qb_assetCollectionController:(QBAssetCollectionViewController *)assetCollectionController shouldSelectAsset:(PHAsset *)asset;
+- (void)qb_assetCollectionController:(QBAssetCollectionViewController *)assetCollectionController didSelectAsset:(PHAsset *)asset;
+- (void)qb_assetCollectionController:(QBAssetCollectionViewController *)assetCollectionController didDeselectAsset:(PHAsset *)asset;
+
+@end
+
+
+@interface QBAssetCollectionViewController : NSObject <UICollectionViewDelegate, UICollectionViewDataSource>
+
+@property (nonatomic, weak) IBOutlet UICollectionView *collectionView;
+@property (nonatomic, weak) IBOutlet id<QBAssetCollectionControllerDelegate> delegate;
+
+@property (nonatomic) PHFetchResult *fetchResult;
+@property (nonatomic, assign) QBImagePickerMediaType mediaType;
+
+@property (nonatomic) QBAssetSelection *assetSelection; // TODO: setter should update Done button state and reload the collection view
+
+@property (nonatomic) UICollectionViewLayout *collectionViewLayout;
+@property (nonatomic, assign) NSUInteger numberOfColumns;
+
+@end
+
+
+
+
+
+
 @class QBAssetsViewController;
 
 @protocol QBAssetsViewControllerDelegate <NSObject>
@@ -18,24 +54,20 @@
 - (void)qb_assetsViewControllerDidFinish:(QBAssetsViewController *)assetsViewController;
 
 @optional
-- (BOOL)qb_assetsViewController:(QBAssetsViewController *)assetsViewController shouldSelectAsset:(PHAsset *)asset;
 - (void)qb_assetsViewController:(QBAssetsViewController *)assetsViewController didSelectAsset:(PHAsset *)asset;
 - (void)qb_assetsViewController:(QBAssetsViewController *)assetsViewController didDeselectAsset:(PHAsset *)asset;
 
 @end
 
 
-@interface QBAssetsViewController : UICollectionViewController
+@interface QBAssetsViewController : UIViewController
 
 @property (nonatomic, weak) id<QBAssetsViewControllerDelegate> delegate;
-@property (nonatomic, strong) QBAssetSelection *assetSelection; // TODO: setter should update Done button state and reload the collection view
-@property (nonatomic, strong) PHAssetCollection *assetCollection;
 
-@property (nonatomic, assign) BOOL showsNumberOfSelectedAssets;
+@property (nonatomic, readonly) QBAssetCollectionViewController *collectionViewController;
 
 @property (nonatomic, assign) NSUInteger numberOfColumnsInPortrait; // TODO: rather use size classes here
 @property (nonatomic, assign) NSUInteger numberOfColumnsInLandscape;
-
-@property (nonatomic, assign) QBImagePickerMediaType mediaType;     // TODO: try to get rid of this - maybe by passing the fetch options from the AlbumsViewController. Otherwise a setter is needed (that triggers whatever updates are necessary - closely related to assetsCollection property)
+@property (nonatomic, assign) BOOL showsNumberOfSelectedAssets;
 
 @end

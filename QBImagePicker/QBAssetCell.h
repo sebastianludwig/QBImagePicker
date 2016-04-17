@@ -7,8 +7,8 @@
 //
 
 #import <UIKit/UIKit.h>
-
-@class QBVideoIndicatorView;
+#import <Photos/Photos.h>
+#import "QBVideoIndicatorView.h"
 
 @interface QBAssetCell : UICollectionViewCell
 
@@ -16,5 +16,7 @@
 @property (weak, nonatomic) IBOutlet QBVideoIndicatorView *videoIndicatorView;
 
 @property (nonatomic, assign) BOOL showsOverlayViewWhenSelected;
+
+- (void)prepareForAsset:(PHAsset *)asset itemSize:(CGSize)itemSize indexPath:(NSIndexPath *)indexPath imageManager:(PHImageManager *)imageManager;
 
 @end

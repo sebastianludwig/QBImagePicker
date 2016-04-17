@@ -116,18 +116,20 @@
 
 - (void)qb_albumsViewController:(QBAlbumsViewController *)albumsViewController didSelectAssetCollection:(QBAssetCollection *)assetCollection
 {
-    UIStoryboard *storyboard = [UIStoryboard storyboardWithName:@"QBImagePicker" bundle:self.assetBundle];
-    QBAssetsViewController *assetsViewController = [storyboard instantiateViewControllerWithIdentifier:@"QBAssetsViewController"];
+    QBAssetsViewController *assetsViewController = [QBAssetsViewController new];
+    
+    assetsViewController.title = assetCollection.collection.localizedTitle;
+    
     assetsViewController.delegate = self;
     assetsViewController.navigationItem.prompt = self.prompt;
     assetsViewController.showsNumberOfSelectedAssets = self.showsNumberOfSelectedAssets;
     assetsViewController.numberOfColumnsInPortrait = self.numberOfColumnsInPortrait;
     assetsViewController.numberOfColumnsInLandscape = self.numberOfColumnsInLandscape;
     
-    assetsViewController.assetSelection = self.assetSelection;
-    assetsViewController.mediaType = self.mediaType;
+    assetsViewController.collectionViewController.assetSelection = self.assetSelection;
+    assetsViewController.collectionViewController.mediaType = self.mediaType;
     
-    assetsViewController.assetCollection = assetCollection.collection;
+    assetsViewController.collectionViewController.fetchResult = assetCollection.assetFetchResult;
     
     [self.albumsNavigationController pushViewController:assetsViewController animated:YES];
 }
